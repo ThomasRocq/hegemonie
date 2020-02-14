@@ -10,6 +10,7 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/valyala/fasthttp v1.9.0
 	google.golang.org/grpc v1.26.0
 	gopkg.in/macaron.v1 v1.3.4
 )
