@@ -1,3 +1,8 @@
+// Copyright (C) 2020 Hegemonie's AUTHORS
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 package main
 
 import (
@@ -17,7 +22,7 @@ func MakeCircle(n uint) Graph {
 
 	vertices := make([]*Vertex, 0)
 	for i := uint(0); i < n; i++ {
-		vertices = append(vertices, MakeVertex())
+		vertices = append(vertices, V0())
 	}
 	for i, v := range vertices {
 		if (i % 2) == 0 {
@@ -27,7 +32,7 @@ func MakeCircle(n uint) Graph {
 
 	edges := make([]*Edge, 0)
 	for i := uint(0); i < n; i++ {
-		e := MakeEdge(vertices[i], vertices[int(i+1)%len(vertices)])
+		e := E(vertices[i], vertices[int(i+1)%len(vertices)])
 		edges = append(edges, e)
 	}
 
@@ -41,7 +46,7 @@ func MakeLine(n uint) Graph {
 
 	vertices := make([]*Vertex, 0)
 	for i := uint(0); i < n; i++ {
-		vertices = append(vertices, MakeVertex())
+		vertices = append(vertices, V0())
 	}
 	for i, v := range vertices {
 		if (i % 2) == 0 {
@@ -52,7 +57,7 @@ func MakeLine(n uint) Graph {
 
 	edges := make([]*Edge, 0)
 	for i := uint(1); i < n; i++ {
-		e := MakeEdge(vertices[i-1], vertices[i])
+		e := E(vertices[i-1], vertices[i])
 		edges = append(edges, e)
 	}
 
@@ -81,11 +86,11 @@ func GlueStar(r *rand.Rand, gv ...Graph) Graph {
 	}
 
 	cluster := Cluster(gv...)
-	a := MakeVertex()
+	a := V0()
 	cluster.AddVertex(a)
 	for _, g := range gv {
 		b := PeekAnchor(r, g)
-		cluster.AddEdge(MakeEdge(a, b))
+		cluster.AddEdge(E(a, b))
 		b.SetAnchor(false)
 	}
 	a.SetAnchor(false)
@@ -103,7 +108,7 @@ func GlueChain(r *rand.Rand, gv ...Graph) Graph {
 		a.SetAnchor(false)
 		b := PeekAnchor(r, g)
 		b.SetAnchor(false)
-		rc.AddEdge(MakeEdge(a, b))
+		rc.AddEdge(E(a, b))
 		rc.(*clusteredGraph).Add(g)
 	}
 	return rc
@@ -114,7 +119,7 @@ func Loop(r *rand.Rand, g Graph) {
 	a.SetAnchor(false)
 	b := PeekAnchor(r, g)
 	b.SetAnchor(false)
-	g.AddEdge(MakeEdge(a, b))
+	g.AddEdge(E(a, b))
 }
 
 func PeekAnchor(r *rand.Rand, g Graph) *Vertex {

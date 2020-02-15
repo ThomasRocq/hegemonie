@@ -1,3 +1,8 @@
+// Copyright (C) 2020 Hegemonie's AUTHORS
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 package main
 
 import (
@@ -41,11 +46,12 @@ type clusteredGraph struct {
 	clusters []Graph
 }
 
-func MakeEdge(s, d *Vertex) *Edge { return &Edge{s: s, d: d} }
-func (e *Edge) S() *Vertex        { return e.s }
-func (e *Edge) D() *Vertex        { return e.d }
+func E(s, d *Vertex) *Edge { return &Edge{s: s, d: d} }
+func (e *Edge) S() *Vertex { return e.s }
+func (e *Edge) D() *Vertex { return e.d }
 
-func MakeVertex() *Vertex          { return &Vertex{id: getNextId()} }
+func V0() *Vertex                  { return &Vertex{id: getNextId()} }
+func V(x, y float64) *Vertex       { return &Vertex{id: getNextId(), x: x, y: y} }
 func (v *Vertex) Id() string       { return strconv.FormatUint(v.id, 16) }
 func (v *Vertex) IsAnchor() bool   { return v.anchor }
 func (v *Vertex) IsCenter() bool   { return v.center }
