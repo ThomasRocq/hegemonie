@@ -8,6 +8,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"strconv"
 )
 
@@ -50,6 +51,18 @@ func E(s, d *Vertex) *Edge { return &Edge{s: s, d: d} }
 func (e *Edge) S() *Vertex { return e.s }
 func (e *Edge) D() *Vertex { return e.d }
 
+const deltaMax = float64(2.0)
+
+func absMax(v float64) float64 {
+	if v < -deltaMax {
+		return -deltaMax
+	}
+	if v > deltaMax {
+		return deltaMax
+	}
+	return v
+}
+
 func V0() *Vertex                  { return &Vertex{id: getNextId()} }
 func V(x, y float64) *Vertex       { return &Vertex{id: getNextId(), x: x, y: y} }
 func (v *Vertex) Id() string       { return strconv.FormatUint(v.id, 16) }
@@ -57,6 +70,8 @@ func (v *Vertex) IsAnchor() bool   { return v.anchor }
 func (v *Vertex) IsCenter() bool   { return v.center }
 func (v *Vertex) SetAnchor(b bool) { v.anchor = b }
 func (v *Vertex) SetCenter(b bool) { v.center = b }
+func (v *Vertex) Move()            { v.x, v.y = absMax(v.x+v.vx), absMax(v.y+v.vy) }
+func (v *Vertex) Reset()           { v.vx, v.vy = 0, 0 }
 
 func (g *memGraph) AddEdge(e *Edge)        { g.edges = append(g.edges, e) }
 func (g *memGraph) AddVertex(v *Vertex)    { g.vertices = append(g.vertices, v) }
@@ -129,27 +144,66 @@ func DrawSvg(g Graph, o io.Writer, x, y uint) {
 	CR := []byte{'\n'}
 
 	fmt.Fprintf(o, `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
- "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg
- width="%[1]d" height="%[2]d"
- viewBox="0.00 0.00 %[1]d %[2]d'"
- xmlns="http://www.w3.org/2000/svg"
- xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="%[1]d" height="%[2]d" viewBox="0 0 %[1]d %[2]d"
+ xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <g>
 <rect x="0" y="0" width="%[1]d" height="%[2]d" fill="#E0E0E0" fill-opacity="0.3" stroke="none"/>`, x, y)
 	o.Write(CR)
 
+	f := func(f float64) uint64 { return uint64(f) }
 	for _, e := range g.GetEdges() {
 		a := e.S()
 		b := e.D()
-		fmt.Fprintf(o, `<line x1="%f" y1="%f" x2="%f" y2="%f" stroke="#000000"/>`, a.x, a.y, b.x, b.y)
+		fmt.Fprintf(o, `<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#000000"/>`, f(a.x), f(a.y), f(b.x), f(b.y))
 		o.Write(CR)
 	}
 	for _, v := range g.GetVertices() {
-		fmt.Fprintf(o, `<circle cx="%f" cy="%f" r="5" fill="#FFFFFF" stroke="#000000"/>`, v.x, v.y)
+		fmt.Fprintf(o, `<circle cx="%d" cy="%d" r="5" fill="#FFFFFF" stroke="#000000"/>`, f(v.x), f(v.y))
 		o.Write(CR)
 	}
 
 	fmt.Fprint(o, `</g></svg>`)
+}
+
+func Noise(r *rand.Rand, g Graph, x, y float64) {
+	for _, v := range g.GetVertices() {
+		v.x += r.Float64() * x
+		v.y += r.Float64() * y
+	}
+}
+
+// Reimplement the graph interface with a compact AdjacencyList implementation
+func Simplify(g Graph) Graph {
+	return &memGraph{vertices: g.GetVertices(), edges: g.GetEdges()}
+}
+
+// Refactor each node position to fit in a given rectangle.
+func Normalize(g Graph, x, y float64) {
+	var xmin, xmax, ymin, ymax float64 = 0, 0, 0, 0
+	for _, v := range g.GetVertices() {
+		if v.x < xmin {
+			xmin = v.x
+		}
+		if v.x > xmax {
+			xmax = v.x
+		}
+		if v.y < ymin {
+			ymin = v.y
+		}
+		if v.y > ymax {
+			ymax = v.y
+		}
+	}
+
+	// Translate everything so that <xmin,ymin> is at <0,0>
+	xmax, ymax = xmax-xmin, ymax-ymin
+	for _, v := range g.GetVertices() {
+		v.x, v.y = v.x-xmin, v.y-ymin
+	}
+
+	// Stretch everything so that <xmax,ymax> is at <x,y>
+	var xratio, yratio float64 = x / xmax, y / ymax
+	for _, v := range g.GetVertices() {
+		v.x, v.y = v.x*xratio, v.y*yratio
+	}
 }

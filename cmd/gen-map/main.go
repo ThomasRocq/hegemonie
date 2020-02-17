@@ -36,10 +36,40 @@ func generate(ctx *fasthttp.RequestCtx, r *rand.Rand) Graph {
 func mainHandler(ctx *fasthttp.RequestCtx) {
 	var err error
 	var seed int64 = time.Now().UnixNano()
+	var rounds uint = 0
+	var x, y int64 = 1024, 768
 
-	strSeed := string(ctx.QueryArgs().Peek("seed"))
-	if strSeed != "" {
-		seed, err = strconv.ParseInt(strSeed, 10, 63)
+	s := string(ctx.QueryArgs().Peek("seed"))
+	if s != "" {
+		seed, err = strconv.ParseInt(s, 10, 63)
+		if err != nil {
+			ctx.Response.Header.Add("X-Error", err.Error())
+			ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
+			return
+		}
+	}
+	s = string(ctx.QueryArgs().Peek("rounds"))
+	if s != "" {
+		u64, err := strconv.ParseUint(s, 10, 31)
+		if err != nil {
+			ctx.Response.Header.Add("X-Error", err.Error())
+			ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
+			return
+		}
+		rounds = uint(u64)
+	}
+	s = string(ctx.QueryArgs().Peek("x"))
+	if s != "" {
+		x, err = strconv.ParseInt(s, 10, 31)
+		if err != nil {
+			ctx.Response.Header.Add("X-Error", err.Error())
+			ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
+			return
+		}
+	}
+	s = string(ctx.QueryArgs().Peek("y"))
+	if s != "" {
+		y, err = strconv.ParseInt(s, 10, 31)
 		if err != nil {
 			ctx.Response.Header.Add("X-Error", err.Error())
 			ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
@@ -48,21 +78,23 @@ func mainHandler(ctx *fasthttp.RequestCtx) {
 	}
 
 	r := rand.New(rand.NewSource(seed))
+	//g := Simplify(generate(ctx, r))
+	g := Simplify(MakeCircle(5))
+	Noise(r, g, float64(x), float64(y))
+	if rounds > 0 {
+		FDP(makePhysics(r), g, float64(x)/2.0, float64(y)/2.0, rounds)
+	}
+	Normalize(g, float64(x), float64(y))
 
 	switch string(ctx.URI().Path()) {
 	case "/dot":
-		g := generate(ctx, r)
 		ctx.SetContentType("text/plain")
 		ctx.Response.SetStatusCode(fasthttp.StatusOK)
 		DrawDot(g, ctx)
 	case "/svg":
-		g := Simplify(generate(ctx, r))
-		Noise(r, g, 1024.0, 768.0)
-		FDP(r, g, 612.0, 384.0)
-		Normalize(g, 1024, 768)
 		ctx.SetContentType("image/svg+xml")
 		ctx.Response.SetStatusCode(fasthttp.StatusOK)
-		DrawSvg(g, ctx, 1024, 768)
+		DrawSvg(g, ctx, uint(x), uint(y))
 	default:
 		ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
 	}
@@ -72,7 +104,7 @@ func main() {
 	var err error
 	flag.Parse()
 
-	err = fasthttp.ListenAndServe("127.0.0.1:8080", mainHandler)
+	err = fasthttp.ListenAndServe(":8080", mainHandler)
 	if err != nil {
 		log.Fatalln("HTTP error:", err.Error())
 	}
