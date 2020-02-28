@@ -18,25 +18,22 @@ func generate(ctx *fasthttp.RequestCtx, r *rand.Rand) Graph {
 	blocks := []Graph{
 		MakeStar(r, 5, 2),
 		MakeCircle(9),
-		MakeCircle(7),
-		MakeCircle(7),
-		MakeCircle(7),
-		MakeCircle(7),
-		MakeCircle(7),
-		MakeStar(r, 4, 2),
-		MakeStar(r, 3, 2),
+		MakeCircle(9),
+		MakeCircle(9),
+		MakeCircle(9),
 	}
 
 	g := GlueChain(r, blocks...)
-	Loop(r, g)
-	Loop(r, g)
+	for i:=0; i<2; i++ {
+		Loop(r, g)
+	}
 	return g
 }
 
 func mainHandler(ctx *fasthttp.RequestCtx) {
 	var err error
 	var seed int64 = time.Now().UnixNano()
-	var rounds uint = 0
+	var rounds uint = 1000
 	var x, y int64 = 1024, 768
 
 	s := string(ctx.QueryArgs().Peek("seed"))
@@ -78,13 +75,7 @@ func mainHandler(ctx *fasthttp.RequestCtx) {
 	}
 
 	r := rand.New(rand.NewSource(seed))
-	//g := Simplify(generate(ctx, r))
-	g := Simplify(MakeCircle(5))
-	Noise(r, g, float64(x), float64(y))
-	if rounds > 0 {
-		FDP(makePhysics(r), g, float64(x)/2.0, float64(y)/2.0, rounds)
-	}
-	Normalize(g, float64(x), float64(y))
+	g := Simplify(generate(ctx, r))
 
 	switch string(ctx.URI().Path()) {
 	case "/dot":
@@ -92,6 +83,10 @@ func mainHandler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.SetStatusCode(fasthttp.StatusOK)
 		DrawDot(g, ctx)
 	case "/svg":
+		Noise(r, g, float64(x), float64(y))
+		FDP(g, float64(x), float64(y), rounds)
+		Normalize(g, float64(x), float64(y))
+		//LogGraph(p, g)
 		ctx.SetContentType("image/svg+xml")
 		ctx.Response.SetStatusCode(fasthttp.StatusOK)
 		DrawSvg(g, ctx, uint(x), uint(y))
