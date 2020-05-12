@@ -9,62 +9,29 @@ import (
 	"math/rand"
 )
 
-func Cluster(g ...Graph) Graph {
-	rc := &clusteredGraph{}
-	rc.clusters = append(rc.clusters, g...)
-	return rc
-}
-
-func MakeCircle(n uint) Graph {
-	if n < 3 {
-		panic("A line with length < 2 makes no sense")
-	}
-
-	vertices := make([]*Vertex, 0)
-	for i := uint(0); i < n; i++ {
-		vertices = append(vertices, V0())
-	}
-	for i, v := range vertices {
-		if (i % 2) == 0 {
-			v.SetAnchor(true)
-		}
-	}
-
-	edges := make([]*Edge, 0)
-	for i := uint(0); i < n; i++ {
-		e := E(vertices[i], vertices[int(i+1)%len(vertices)])
-		edges = append(edges, e)
-	}
-
-	return &memGraph{vertices: vertices, edges: edges}
-}
-
-func MakeLine(n uint) Graph {
+func MakeLine(n uint) *Graph {
 	if n < 2 {
 		panic("A line with length < 2 makes no sense")
 	}
 
-	vertices := make([]*Vertex, 0)
+	g := G()
 	for i := uint(0); i < n; i++ {
-		vertices = append(vertices, V0())
-	}
-	for i, v := range vertices {
-		if (i % 2) == 0 {
-			v.SetAnchor(true)
-		}
-	}
-	vertices[n-1].SetAnchor(true)
-
-	edges := make([]*Edge, 0)
-	for i := uint(1); i < n; i++ {
-		e := E(vertices[i-1], vertices[i])
-		edges = append(edges, e)
+		v := V0()
+		v.SetAnchor(0 == (i%2) || i == n-1)
+		v.x = 0
+		v.y = float64(i) * 50.0
+		g.AddVertex(v)
 	}
 
-	return &memGraph{vertices: vertices, edges: edges}
+	vertices := g.GetVertices()
+	for i := 1; i < len(vertices); i++ {
+		g.AddEdge(E(vertices[i-1], vertices[i]))
+	}
+
+	return g
 }
 
-func MakeStar(r *rand.Rand, nb, radius uint) Graph {
+func MakeStar(r *rand.Rand, nb, radius uint) *Graph {
 	if nb < 3 {
 		panic("Star with less than 3 branches makes no sense")
 	}
@@ -72,7 +39,7 @@ func MakeStar(r *rand.Rand, nb, radius uint) Graph {
 		panic("Star with radius zero makes no sense")
 	}
 
-	clusters := make([]Graph, 0)
+	clusters := make([]*Graph, 0)
 	for i := uint(0); i < nb; i++ {
 		clusters = append(clusters, MakeLine(radius))
 	}
@@ -80,12 +47,32 @@ func MakeStar(r *rand.Rand, nb, radius uint) Graph {
 	return GlueStar(r, clusters...)
 }
 
-func GlueStar(r *rand.Rand, gv ...Graph) Graph {
+func MakeCircle(n uint) *Graph {
+	if n < 3 {
+		panic("A line with length < 2 makes no sense")
+	}
+
+	g := G()
+	for i := uint(0); i < n; i++ {
+		v := V0()
+		v.SetAnchor(0 == (i%2))
+		g.AddVertex(v)
+	}
+
+	vertices := g.GetVertices()
+	for i := uint(0); i < n; i++ {
+		g.AddEdge(E(vertices[i], vertices[int(i+1)%len(vertices)]))
+	}
+
+	return g
+}
+
+func GlueStar(r *rand.Rand, gv ...*Graph) *Graph {
 	if len(gv) < 2 {
 		panic("Glueing less than 2 Graphs makes no sense")
 	}
 
-	cluster := Cluster(gv...)
+	cluster := Merge(gv...)
 	a := V0()
 	cluster.AddVertex(a)
 	for _, g := range gv {
@@ -97,24 +84,40 @@ func GlueStar(r *rand.Rand, gv ...Graph) Graph {
 	return cluster
 }
 
-func GlueChain(r *rand.Rand, gv ...Graph) Graph {
+func GlueChain(r *rand.Rand, gv ...*Graph) *Graph {
 	if len(gv) < 2 {
 		panic("Glueing less than 2 Graphs makes no sense")
 	}
 
-	rc := Cluster(gv[0])
+	rc := gv[0]
 	for _, g := range gv[1:] {
-		a := PeekAnchor(r, rc)
-		a.SetAnchor(false)
-		b := PeekAnchor(r, g)
-		b.SetAnchor(false)
-		rc.AddEdge(E(a, b))
-		rc.(*clusteredGraph).Add(g)
+		rc = Juxtapose(rc, g)
 	}
 	return rc
 }
 
-func Loop(r *rand.Rand, g Graph) {
+func Juxtapose(g0, g1 *Graph) (g *Graph) {
+	Origin(g0)
+	Origin(g1)
+
+	// Vertical alignment on the middle of each graph
+	_, xmax0, _, ymax0 := Box(g0)
+	_, _, _, ymax1 := Box(g1)
+	if ymax0 > ymax1 {
+		Translate(g1, 0, (ymax1-ymax0)/2)
+	} else if ymax0 < ymax1 {
+		Translate(g0, 0, (ymax0-ymax1)/2)
+	}
+
+	Translate(g1, xmax0+50, 0)
+
+	// Add  a link between both graphs
+	rc := Merge(g0, g1)
+	rc.AddEdge(E(RightMost(g0), LeftMost(g1)))
+	return rc
+}
+
+func Loop(r *rand.Rand, g *Graph) {
 	a := PeekAnchor(r, g)
 	a.SetAnchor(false)
 	b := PeekAnchor(r, g)
@@ -122,7 +125,7 @@ func Loop(r *rand.Rand, g Graph) {
 	g.AddEdge(E(a, b))
 }
 
-func PeekAnchor(r *rand.Rand, g Graph) *Vertex {
+func PeekAnchor(r *rand.Rand, g *Graph) *Vertex {
 	anchors := g.GetAnchors()
 	return anchors[r.Intn(len(anchors))]
 }

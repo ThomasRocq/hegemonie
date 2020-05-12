@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-func generate(ctx *fasthttp.RequestCtx, r *rand.Rand) Graph {
-	blocks := []Graph{
+func generate(ctx *fasthttp.RequestCtx, r *rand.Rand) *Graph {
+	blocks := []*Graph{
 		MakeStar(r, 5, 2),
 		MakeCircle(9),
 		MakeCircle(9),
@@ -23,11 +23,7 @@ func generate(ctx *fasthttp.RequestCtx, r *rand.Rand) Graph {
 		MakeCircle(9),
 	}
 
-	g := GlueChain(r, blocks...)
-	for i:=0; i<2; i++ {
-		Loop(r, g)
-	}
-	return g
+	return GlueChain(r, blocks...)
 }
 
 func mainHandler(ctx *fasthttp.RequestCtx) {
@@ -75,7 +71,7 @@ func mainHandler(ctx *fasthttp.RequestCtx) {
 	}
 
 	r := rand.New(rand.NewSource(seed))
-	g := Simplify(generate(ctx, r))
+	g := generate(ctx, r)
 
 	switch string(ctx.URI().Path()) {
 	case "/dot":

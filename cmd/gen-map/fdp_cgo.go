@@ -16,7 +16,7 @@ import (
 	"log"
 )
 
-func FDP(g Graph, x, y float64, rounds uint) error {
+func FDP(g *Graph, x, y float64, rounds uint) error {
 	v0 := g.GetVertices()
 	for i, v := range v0 {
 		v.id = i
