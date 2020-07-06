@@ -7,31 +7,30 @@ package hegemonie_web_agent
 
 import (
 	"github.com/go-macaron/session"
-	region "github.com/jfsmig/hegemonie/pkg/region/proto"
+	mproto "github.com/jfsmig/hegemonie/pkg/map/proto"
+	rproto "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"gopkg.in/macaron.v1"
 )
 
-type RawVertex struct {
-	ID   uint64 `json:"id"`
-	X    uint64 `json:"x"`
-	Y    uint64 `json:"y"`
-	City uint64 `json:"city"`
+type rawVertex struct {
+	ID uint64 `json:"id"`
+	X  uint64 `json:"x"`
+	Y  uint64 `json:"y"`
 }
 
-type RawEdge struct {
+type rawEdge struct {
 	Src uint64 `json:"src"`
 	Dst uint64 `json:"dst"`
 }
 
-type RawCity struct {
+type rawCity struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name"`
-	Cell uint64 `json:"cell"`
 }
 
-type RawMap struct {
-	Cells map[uint64]RawVertex `json:"cells"`
-	Roads []RawEdge            `json:"roads"`
+type rawMap struct {
+	Cells map[uint64]rawVertex `json:"cells"`
+	Roads []rawEdge            `json:"roads"`
 }
 
 func serveRegionMap(f *frontService) NoFlashPage {
@@ -42,11 +41,11 @@ func serveRegionMap(f *frontService) NoFlashPage {
 			return
 		}
 
-		m := RawMap{
-			Cells: make(map[uint64]RawVertex),
-			Roads: make([]RawEdge, 0),
+		m := rawMap{
+			Cells: make(map[uint64]rawVertex),
+			Roads: make([]rawEdge, 0),
 		}
-		cli := region.NewMapClient(f.cnxRegion)
+		cli := mproto.NewMapClient(f.cnxRegion)
 		ctx0 := contextMacaronToGrpc(ctx, sess)
 
 		// FIXME(jfs): iterate in case of a truncated result
@@ -56,7 +55,7 @@ func serveRegionMap(f *frontService) NoFlashPage {
 			return
 		}
 		for _, v := range vertices {
-			m.Cells[v.Id] = RawVertex{ID: v.Id, X: v.X, Y: v.Y, City: v.CityId}
+			m.Cells[v.Id] = rawVertex{ID: v.Id, X: v.X, Y: v.Y}
 		}
 
 		// FIXME(jfs): iterate in case of a truncated result
@@ -66,7 +65,7 @@ func serveRegionMap(f *frontService) NoFlashPage {
 			return
 		}
 		for _, e := range edges {
-			m.Roads = append(m.Roads, RawEdge{Src: e.Src, Dst: e.Dst})
+			m.Roads = append(m.Roads, rawEdge{Src: e.Src, Dst: e.Dst})
 		}
 
 		ctx.JSON(200, m)
@@ -81,8 +80,8 @@ func serveRegionCities(f *frontService) NoFlashPage {
 			return
 		}
 
-		tab := make([]RawCity, 0)
-		cli := region.NewMapClient(f.cnxRegion)
+		tab := make([]rawCity, 0)
+		cli := rproto.NewCityClient(f.cnxRegion)
 
 		// FIXME(jfs): iterate in case of a truncated result
 		cities, err := f.loadAllCities(contextMacaronToGrpc(ctx, sess), cli)
@@ -91,7 +90,7 @@ func serveRegionCities(f *frontService) NoFlashPage {
 			return
 		}
 		for _, v := range cities {
-			tab = append(tab, RawCity{ID: v.Id, Name: v.Name, Cell: v.Location})
+			tab = append(tab, rawCity{ID: v.Id, Name: v.Name})
 		}
 
 		ctx.JSON(200, tab)

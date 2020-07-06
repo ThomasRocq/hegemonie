@@ -7,27 +7,14 @@ package main
 
 import (
 	"errors"
-	hegemonie_auth_client "github.com/jfsmig/hegemonie/pkg/auth/client"
 	hegemonie_event_client "github.com/jfsmig/hegemonie/pkg/event/client"
-	"github.com/jfsmig/hegemonie/pkg/region/client"
+	hegemonie_map_client "github.com/jfsmig/hegemonie/pkg/map/client"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/spf13/cobra"
 	"log"
 )
 
 func main() {
-	regCmd := hegemonie_region_client.Command()
-	regCmd.Use = "region"
-	regCmd.Aliases = []string{"reg"}
-
-	aaaCmd := hegemonie_auth_client.Command()
-	aaaCmd.Use = "auth"
-	aaaCmd.Aliases = []string{"aaa"}
-
-	evtCmd := hegemonie_event_client.Command()
-	evtCmd.Use = "event"
-	evtCmd.Aliases = []string{"evt"}
-
 	rootCmd := &cobra.Command{
 		Use:   "hege",
 		Short: "Hegemonie CLI",
@@ -36,8 +23,28 @@ func main() {
 			return errors.New("Missing subcommand")
 		},
 	}
-	rootCmd.AddCommand(aaaCmd, regCmd, evtCmd)
 	utils.PatchCommandLogs(rootCmd)
+
+	mapCmd := hegemonie_map_client.Command()
+	mapCmd.Use = "map"
+	mapCmd.Aliases = []string{"map"}
+	rootCmd.AddCommand(mapCmd)
+
+	evtCmd := hegemonie_event_client.Command()
+	evtCmd.Use = "event"
+	evtCmd.Aliases = []string{"evt"}
+	rootCmd.AddCommand(evtCmd)
+	/*
+		aaaCmd := hegemonie_auth_client.Command()
+		aaaCmd.Use = "auth"
+		aaaCmd.Aliases = []string{"aaa"}
+		rootCmd.AddCommand(aaaCmd)
+
+		regCmd := hegemonie_region_client.Command()
+		regCmd.Use = "region"
+		regCmd.Aliases = []string{"reg"}
+		rootCmd.AddCommand(regCmd)
+	*/
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln("Command error:", err)

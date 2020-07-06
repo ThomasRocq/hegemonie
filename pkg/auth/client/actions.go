@@ -82,8 +82,8 @@ func doList(cmd *cobra.Command, args []string, cfg *authConfig) error {
 				break
 			}
 			for _, u := range rep.Items {
-				if u.Id > last {
-					last = u.Id
+				if u.UserId > last {
+					last = u.UserId
 				}
 				enc := json.NewEncoder(os.Stdout)
 				enc.Encode(u)

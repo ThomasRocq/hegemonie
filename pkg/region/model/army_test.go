@@ -4,3 +4,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package region
+
+import "testing"
+
+func TestSetOfBuildingType(t *testing.T) {
+}

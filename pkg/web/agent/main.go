@@ -14,7 +14,8 @@ import (
 	"github.com/go-macaron/session"
 	_ "github.com/go-macaron/session/memcache"
 	"github.com/google/uuid"
-	region "github.com/jfsmig/hegemonie/pkg/region/proto"
+	mproto "github.com/jfsmig/hegemonie/pkg/map/proto"
+	rproto "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"gopkg.in/macaron.v1"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,19 +42,21 @@ type frontService struct {
 	endpointRegion string
 	endpointAuth   string
 	endpointEvent  string
+	endpointMap    string
 
 	translations *i18n.Bundle
 
 	cnxRegion *grpc.ClientConn
 	cnxAuth   *grpc.ClientConn
 	cnxEvent  *grpc.ClientConn
+	cnxMap    *grpc.ClientConn
 
 	rw        sync.RWMutex
-	units     map[uint64]*region.UnitTypeView
-	buildings map[uint64]*region.BuildingTypeView
-	knowledge map[uint64]*region.KnowledgeTypeView
-	cities    map[uint64]*region.PublicCity
-	locations map[uint64]*region.Vertex
+	units     map[uint64]*rproto.UnitTypeView
+	buildings map[uint64]*rproto.BuildingTypeView
+	knowledge map[uint64]*rproto.KnowledgeTypeView
+	cities    map[uint64]*rproto.PublicCity
+	locations map[uint64]*mproto.Vertex
 }
 
 func Command() *cobra.Command {
@@ -114,11 +118,11 @@ func Command() *cobra.Command {
 					auth()
 				}
 			})
-			m.Post("/action/login", binding.Bind(FormLogin{}), doLogin(&front, m))
-			m.Post("/action/logout", doLogout(&front, m))
-			m.Get("/action/logout", doLogout(&front, m))
-			m.Post("/action/move", doMove(&front, m))
-			m.Post("/action/produce", doProduce(&front, m))
+			m.Post("/action/login", binding.Bind(FormLogin{}), doLogin(&front))
+			m.Post("/action/logout", doLogout(&front))
+			m.Get("/action/logout", doLogout(&front))
+			m.Post("/action/move", doMove(&front))
+			m.Post("/action/produce", doProduce(&front))
 			m.Post("/action/city/study", binding.Bind(FormCityStudy{}), doCityStudy(&front))
 			m.Post("/action/city/build", binding.Bind(FormCityBuild{}), doCityBuild(&front))
 			m.Post("/action/city/train", binding.Bind(FormCityTrain{}), doCityTrain(&front))
@@ -165,6 +169,11 @@ func Command() *cobra.Command {
 				return err
 			}
 
+			front.cnxMap, err = grpc.Dial(front.endpointMap, grpc.WithInsecure())
+			if err != nil {
+				return err
+			}
+
 			go front.loopReload(context.Background())
 
 			return http.ListenAndServe(front.endpointNorth, m)
@@ -172,6 +181,8 @@ func Command() *cobra.Command {
 	}
 	agent.Flags().StringVar(&front.endpointNorth,
 		"endpoint", utils.DefaultEndpointWww, "TCP/IP North endpoint")
+	agent.Flags().StringVar(&front.endpointMap,
+		"map", "", "Map Server to connect to")
 	agent.Flags().StringVar(&front.endpointRegion,
 		"region", "", "World Server to connect to")
 	agent.Flags().StringVar(&front.endpointAuth,
@@ -218,149 +229,161 @@ func (f *frontService) loadTranslations() error {
 	})
 }
 
-func (f *frontService) loadAllCities(ctx context.Context, cli region.MapClient) (map[uint64]*region.PublicCity, error) {
-	last := uint64(0)
-	tab := make(map[uint64]*region.PublicCity)
+func (f *frontService) loadAllCities(ctx context.Context, cli rproto.CityClient) (map[uint64]*rproto.PublicCity, error) {
+	var last uint64
+	tab := make(map[uint64]*rproto.PublicCity)
 
+	args := &rproto.PaginatedQuery{Marker: last}
+	l, err := cli.AllCities(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
-		l, err := cli.Cities(ctx, args)
+		item, err := l.Recv()
 		if err != nil {
 			return nil, err
 		}
-		if len(l.Items) <= 0 {
-			return tab, nil
+		if last < item.Id {
+			last = item.Id
 		}
-		for _, item := range l.Items {
-			if last < item.Id {
-				last = item.Id
-			}
-			tab[item.Id] = item
-		}
+		tab[item.Id] = item
 	}
+	return tab, nil
 }
 
-func (f *frontService) loadAllLocations(ctx context.Context, cli region.MapClient) (map[uint64]*region.Vertex, error) {
-	last := uint64(0)
-	tab := make(map[uint64]*region.Vertex)
+func (f *frontService) loadAllLocations(ctx context.Context, cli mproto.MapClient) (map[uint64]*mproto.Vertex, error) {
+	var last uint64
+	tab := make(map[uint64]*mproto.Vertex)
 
+	args := &mproto.ListVerticesReq{Marker: last}
+	l, err := cli.Vertices(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 10000}
-		l, err := cli.Vertices(ctx, args)
+		item, err := l.Recv()
 		if err != nil {
 			return nil, err
 		}
-		if len(l.Items) <= 0 {
-			return tab, nil
+		if last < item.Id {
+			last = item.Id
 		}
-		for _, item := range l.Items {
-			if last < item.Id {
-				last = item.Id
-			}
-			tab[item.Id] = item
-		}
+		tab[item.Id] = item
 	}
+	return tab, nil
 }
 
-func (f *frontService) loadAllRoads(ctx context.Context, cli region.MapClient) ([]*region.Edge, error) {
+func (f *frontService) loadAllRoads(ctx context.Context, cli mproto.MapClient) ([]*mproto.Edge, error) {
 	var lastSrc, lastDst uint64
-	tab := make([]*region.Edge, 0)
+	tab := make([]*mproto.Edge, 0)
 
+	args := &mproto.ListEdgesReq{MarkerSrc: lastSrc, MarkerDst: lastDst}
+	l, err := cli.Edges(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 	for {
-		args := &region.ListEdgesReq{MarkerSrc: lastSrc, MarkerDst: lastDst, Max: 10000}
-		l, err := cli.Edges(ctx, args)
+		item, err := l.Recv()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, err
 		}
-		if len(l.Items) <= 0 {
-			return tab, nil
+		if lastSrc < item.Src {
+			lastSrc = item.Src
+			lastDst = item.Dst
+		} else if lastSrc == item.Src && lastDst < item.Dst {
+			lastDst = item.Dst
 		}
-		for _, item := range l.Items {
-			if lastSrc < item.Src {
-				lastSrc = item.Src
-				lastDst = item.Dst
-			} else if lastSrc == item.Src && lastDst < item.Dst {
-				lastDst = item.Dst
-			}
-			tab = append(tab, item)
-		}
+		tab = append(tab, item)
 	}
+	return tab, nil
 }
 
-func (f *frontService) loadAllUnits(ctx context.Context, cli region.DefinitionsClient) (map[uint64]*region.UnitTypeView, error) {
-	last := uint64(0)
-	tab := make(map[uint64]*region.UnitTypeView)
+func (f *frontService) loadAllUnits(ctx context.Context, cli rproto.DefinitionsClient) (map[uint64]*rproto.UnitTypeView, error) {
+	var last uint64
+	tab := make(map[uint64]*rproto.UnitTypeView)
 
+	args := &rproto.PaginatedQuery{Marker: last}
+	l, err := cli.ListUnits(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
-		l, err := cli.ListUnits(ctx, args)
+		item, err := l.Recv()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, err
 		}
-		if len(l.Items) <= 0 {
-			return tab, nil
+		if last < item.Id {
+			last = item.Id
 		}
-		for _, item := range l.Items {
-			if last < item.Id {
-				last = item.Id
-			}
-			tab[item.Id] = item
-		}
+		tab[item.Id] = item
 	}
+	return tab, nil
 }
 
-func (f *frontService) loadAllBuildings(ctx context.Context, cli region.DefinitionsClient) (map[uint64]*region.BuildingTypeView, error) {
-	last := uint64(0)
-	tab := make(map[uint64]*region.BuildingTypeView)
+func (f *frontService) loadAllBuildings(ctx context.Context, cli rproto.DefinitionsClient) (map[uint64]*rproto.BuildingTypeView, error) {
+	var last uint64
+	tab := make(map[uint64]*rproto.BuildingTypeView)
 
+	args := &rproto.PaginatedQuery{Marker: last}
+	l, err := cli.ListBuildings(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
-		l, err := cli.ListBuildings(ctx, args)
+		item, err := l.Recv()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, err
 		}
-		if len(l.Items) <= 0 {
-			return tab, nil
+		if last < item.Id {
+			last = item.Id
 		}
-		for _, item := range l.Items {
-			if last < item.Id {
-				last = item.Id
-			}
-			tab[item.Id] = item
-		}
+		tab[item.Id] = item
 	}
+	return tab, nil
 }
 
-func (f *frontService) loadAllKnowledges(ctx context.Context, cli region.DefinitionsClient) (map[uint64]*region.KnowledgeTypeView, error) {
-	last := uint64(0)
-	tab := make(map[uint64]*region.KnowledgeTypeView)
+func (f *frontService) loadAllKnowledges(ctx context.Context, cli rproto.DefinitionsClient) (map[uint64]*rproto.KnowledgeTypeView, error) {
+	var last uint64
+	tab := make(map[uint64]*rproto.KnowledgeTypeView)
 
+	args := &rproto.PaginatedQuery{Marker: last}
+	l, err := cli.ListKnowledges(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
-		l, err := cli.ListKnowledges(ctx, args)
+		item, err := l.Recv()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, err
 		}
-		if len(l.Items) <= 0 {
-			return tab, nil
+		if last < item.Id {
+			last = item.Id
 		}
-		for _, item := range l.Items {
-			if last < item.Id {
-				last = item.Id
-			}
-			tab[item.Id] = item
-		}
+		tab[item.Id] = item
 	}
+	return tab, nil
 }
 
-func (f *frontService) reload(ctx0 context.Context, cli region.DefinitionsClient, sessionID string) {
+func (f *frontService) reload(ctx0 context.Context, cli rproto.DefinitionsClient, sessionID string) {
 	ctx := metadata.AppendToOutgoingContext(ctx0, "session-id", sessionID)
 
 	var uerr, berr, kerr error
 	var wg sync.WaitGroup
-	var utv map[uint64]*region.UnitTypeView
-	var btv map[uint64]*region.BuildingTypeView
-	var ktv map[uint64]*region.KnowledgeTypeView
+	var utv map[uint64]*rproto.UnitTypeView
+	var btv map[uint64]*rproto.BuildingTypeView
+	var ktv map[uint64]*rproto.KnowledgeTypeView
 
 	wg.Add(3)
 	go func() {
@@ -403,12 +426,12 @@ func (f *frontService) reload(ctx0 context.Context, cli region.DefinitionsClient
 func (f *frontService) loopReload(ctx context.Context) {
 	sessionID := uuid.New().String()
 	for _, v := range []int{2, 4, 8, 16} {
-		cli := region.NewDefinitionsClient(f.cnxRegion)
+		cli := rproto.NewDefinitionsClient(f.cnxRegion)
 		f.reload(ctx, cli, sessionID)
 		<-time.After(time.Duration(v) * time.Second)
 	}
 	for {
-		cli := region.NewDefinitionsClient(f.cnxRegion)
+		cli := rproto.NewDefinitionsClient(f.cnxRegion)
 		f.reload(ctx, cli, sessionID)
 		<-time.After(61 * time.Second)
 	}

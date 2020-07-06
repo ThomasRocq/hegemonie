@@ -34,7 +34,9 @@ func expandCityView(f *frontService, lView *region.CityView) {
 
 func serveGameCityPage(f *frontService, template string) ActionPage {
 	return func(ctx *macaron.Context, sess session.Store, flash *session.Flash) {
-		uView, cView, err := f.authenticateCharacterFromSession(ctx, sess, atou(ctx.Query("cid")))
+		rid := ctx.Query("rid")
+		cid := ctx.Query("cid")
+		uView, cView, err := f.authenticateCharacterFromSession(ctx, sess, rid, cid)
 		if err != nil {
 			flash.Warning(err.Error())
 			ctx.Redirect("/game/user")

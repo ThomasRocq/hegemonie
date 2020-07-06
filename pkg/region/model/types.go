@@ -5,7 +5,9 @@
 
 package region
 
-import "sync"
+import (
+	"sync"
+)
 
 const (
 	ResourceActions   = iota
@@ -42,16 +44,22 @@ const (
 )
 
 type World struct {
-	Config      Configuration
-	Definitions DefinitionsBase
-	Live        LiveBase
-	Places      Map
+	// Core configuration common to all the Regions of the current World.
+	Config Configuration
 
+	// Data that define the current World, shared among all the Regions.
+	Definitions DefinitionsBase
+
+	// All the regions that have been instantiated into the current World.
+	Regions SetOfRegions
+
+	// Interface to the notification system
 	notifier Notifier
 
-	nextID uint64
-	Salt   string
-	rw     sync.RWMutex
+	// Interface to the map
+	mapView MapView
+
+	rw sync.RWMutex
 }
 
 type Configuration struct {
@@ -84,18 +92,38 @@ type Configuration struct {
 }
 
 type DefinitionsBase struct {
-	Units      SetOfUnitTypes
-	Buildings  SetOfBuildingTypes
+	// All the possible Units that can be trained or hired in a World
+	// IMMUTABLE: Only read accesses allowed.
+	Units SetOfUnitTypes
+	// All the possible Buildings that can be spanwed in Cities of the current World
+	// IMMUTABLE: Only read accesses allowed.
+	Buildings SetOfBuildingTypes
+	// All the possible Knowledge that can be learned in Cities of the current World
+	// IMMUTABLE: Only read accesses allowed.
 	Knowledges SetOfKnowledgeTypes
 }
 
-type LiveBase struct {
+type Region struct {
+	// Unique name of the region
+	Name string
+
+	// Identifier of the map in use for the current Region
+	MapName string
+
 	// All the cities present on the Region
 	Cities SetOfCities
 
 	// Fights currently happening. The armies involved in the Fight are owned
 	// By the Fight and do not appear in the "Armies" field.
 	Fights SetOfFights
+
+	// Back-pointer to the World the current Region belongs to.
+	world *World
+}
+
+// Map actions that are exposed to a World
+type MapView interface {
+	Step(src, dst uint64) (uint64, error)
 }
 
 type Resources [ResourceMax]uint64
@@ -105,8 +133,11 @@ type ResourcesIncrement [ResourceMax]int64
 type ResourcesMultiplier [ResourceMax]float64
 
 type Artifact struct {
-	ID      uint64 `json:"id"`
-	Type    uint64 `json:"type"`
+	// UUID
+	ID string `json:"id"`
+	// UUID
+	Type string `json:"type"`
+	// UUID
 	Name    string `json:"name"`
 	Visible bool   `json:"visible,omitempty"`
 }
@@ -170,7 +201,7 @@ type KnowledgeType struct {
 }
 
 type Knowledge struct {
-	ID    uint64 `json:"Id"`
+	ID    string `json:"Id"`
 	Type  uint64
 	Ticks uint32 `json:",omitempty"`
 }
@@ -229,7 +260,7 @@ type BuildingType struct {
 
 type Building struct {
 	// The unique ID of the current Building
-	ID uint64 `json:"Id"`
+	ID string `json:"Id"`
 
 	// The unique ID of the BuildingType associated to the current Building
 	Type uint64
@@ -239,15 +270,16 @@ type Building struct {
 }
 
 type City struct {
-	// The unique ID of the current City
+	// The unique ID of the current City/
+	// It is identical to the ID of the location (Vertex) on the Map.
 	ID uint64 `json:"Id"`
 
 	// The unique ID of the main Character in charge of the City.
 	// The Manager may name a Deputy manager in the City.
-	Owner uint64
+	Owner string
 
 	// The unique ID of a second Character in charge of the City.
-	Deputy uint64 `json:",omitempty"`
+	Deputy string `json:",omitempty"`
 
 	// The unique ID of a City who is the boss of the current City.
 	// Used for resources production computations.
@@ -255,11 +287,6 @@ type City struct {
 
 	// Ratio of the produced resources automatically sent to the Overlord City.
 	TaxRate ResourcesMultiplier
-
-	// The unique ID of the Cell the current City is built on.
-	// This is redundant with the City field in the Cell structure.
-	// Both information must match.
-	Cell uint64
 
 	Assault *Fight `json:",omitempty"`
 
@@ -396,7 +423,7 @@ type UnitType struct {
 // Both Cell and City must not be 0, and have a non-0 value
 type Unit struct {
 	// Unique ID of the Unit
-	ID uint64 `json:"Id"`
+	ID string `json:"Id"`
 
 	// A copy of the definition for the current Unit.
 	Type uint64
@@ -449,7 +476,7 @@ type ActionArgAssault struct {
 // is consumed by a periodical task.
 type Army struct {
 	// The unique ID of the current Army
-	ID uint64 `json:"Id"`
+	ID string `json:"Id"`
 
 	// A display name for the current City
 	Name string
@@ -458,7 +485,7 @@ type Army struct {
 	City *City `json:"-"`
 
 	// The ID of the Fight this Army is involved in.
-	Fight uint64 `json:",omitempty"`
+	Fight string `json:",omitempty"`
 
 	// The ID of the Cell the Army is on
 	Cell uint64 `json:",omitempty"`
@@ -486,7 +513,7 @@ type Army struct {
 
 type Fight struct {
 	// The unique ID of the
-	ID uint64 `json:"Id"`
+	ID string `json:"Id"`
 
 	// The unique ID of the MapVertex the current Fight is happening on.
 	Cell uint64
@@ -500,53 +527,16 @@ type Fight struct {
 	Defense SetOfArmies
 }
 
-// A MapEdge is an edge if the transportation directed graph
-type MapEdge struct {
-	// Unique identifier of the source Cell
-	S uint64 `json:"src"`
-
-	// Unique identifier of the destination Cell
-	D uint64 `json:"dst"`
-}
-
-// A MapVertex is a vertex in the transportation directed graph
-type MapVertex struct {
-	// The unique identifier of the current cell.
-	ID uint64 `json:"id"`
-
-	// // Biome in which the cell is
-	// Biome uint64
-
-	// Location of the Cell on the map. Used for rendering
-	X uint64 `json:"x"`
-	Y uint64 `json:"y"`
-
-	// The unique ID of the city present at this location.
-	City uint64 `json:"city,omitempty"`
-}
-
-// A Map is a directed graph destined to be used as a transport network,
-// organised as an adjacency list.
-type Map struct {
-	Cells SetOfVertices `json:"cells"`
-	Roads SetOfEdges    `json:"roads"`
-
-	nextID uint64
-	steps  map[vector]uint64
-}
-
 type SetOfFights []*Fight
 
-type SetOfEdges []*MapEdge
-
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Artifact      SetOfArtifacts
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Army          SetOfArmies
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Building      SetOfBuildings
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *BuildingType  SetOfBuildingTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *City          SetOfCities
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set          region ./world_auto.go uint64         SetOfId
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Knowledge     SetOfKnowledges
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *KnowledgeType SetOfKnowledgeTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Unit          SetOfUnits
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *UnitType      SetOfUnitTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *MapVertex     SetOfVertices
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfArtifacts:*Artifact ID:string
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfArmies:*Army ID:string
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfBuildings:*Building ID:string
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfBuildingTypes:*BuildingType
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfCities:*City
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfId:uint64 :uint64
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfKnowledges:*Knowledge ID:string
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfKnowledgeTypes:*KnowledgeType
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfUnits:*Unit ID:string
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfUnitTypes:*UnitType
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfRegions:*Region Name:string

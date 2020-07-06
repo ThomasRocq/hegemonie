@@ -8,23 +8,38 @@ GO=go
 PROTOC=protoc
 COV_OUT=coverage.txt
 
-AUTO=  pkg/region/model/world_auto.go
+AUTO=
+AUTO+= pkg/auth/backend/mem_auto.go
 AUTO+= pkg/auth/proto/auth.pb.go
+AUTO+= pkg/map/graph/map_auto.go
+AUTO+= pkg/map/proto/map.pb.go
 AUTO+= pkg/event/proto/event.pb.go
+AUTO+= pkg/region/model/world_auto.go
 AUTO+= pkg/region/proto/region.pb.go
 AUTO+= pkg/healthcheck/healthcheck.pb.go
 
 all: prepare
 	$(GO) install $(BASE)/cmd/gen-set
-	$(GO) install $(BASE)/cmd/hege-mapper
+	#$(GO) install $(BASE)/cmd/hege-init
 	$(GO) install $(BASE)/cmd/heged
 	$(GO) install $(BASE)/cmd/hege
 
 prepare: $(AUTO)
 
-pkg/region/model/world_auto.go: pkg/region/model/world_types.go cmd/gen-set/main.go
+pkg/auth/backend/mem_auto.go: pkg/auth/backend/mem.go cmd/gen-set/gen-set.go
+	-rm $@
+	$(GO) generate github.com/jfsmig/hegemonie/pkg/auth/backend
+
+pkg/map/graph/map_auto.go: pkg/map/graph/map.go cmd/gen-set/gen-set.go
+	-rm $@
+	$(GO) generate github.com/jfsmig/hegemonie/pkg/map/graph
+
+pkg/region/model/world_auto.go: pkg/region/model/types.go cmd/gen-set/gen-set.go
 	-rm $@
 	$(GO) generate github.com/jfsmig/hegemonie/pkg/region/model
+
+pkg/map/proto/%.pb.go: api/map.proto
+	$(PROTOC) -I api api/map.proto --go_out=plugins=grpc:pkg/map/proto
 
 pkg/auth/proto/%.pb.go: api/auth.proto
 	$(PROTOC) -I api api/auth.proto --go_out=plugins=grpc:pkg/auth/proto
@@ -41,7 +56,7 @@ pkg/healthcheck/%.pb.go: api/healthcheck.proto
 clean:
 	-rm $(AUTO)
 
-.PHONY: all prepare clean test bench fmt try
+.PHONY: all prepare clean test bench fmt try gen-set
 
 fmt:
 	go list ./... | grep -v vendor | while read D ; do go fmt $$D ; done

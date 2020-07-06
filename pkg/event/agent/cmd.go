@@ -34,9 +34,12 @@ func Command() *cobra.Command {
 
 	agent := &cobra.Command{
 		Use:     "agent",
-		Aliases: []string{"srv", "server", "service", "worker"},
+		Aliases: []string{"server"},
 		Short:   "Authentication service",
+		Example: "heged event --endpoint=10.0.0.1:2345 /path/to/event/rocksdb",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg.pathBase = args[0]
 			srv := eventService{cfg: &cfg}
 			return srv.execute()
 		},
@@ -44,9 +47,6 @@ func Command() *cobra.Command {
 
 	agent.Flags().StringVar(&cfg.endpoint,
 		"endpoint", utils.DefaultEndpointEvent, "IP:PORT endpoint for the gRPC server")
-	agent.Flags().StringVar(&cfg.pathBase,
-		"base", "", "Path of the DB")
-
 	return agent
 }
 
@@ -66,12 +66,14 @@ func (srv *eventService) execute() error {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
 
-	server := grpc.NewServer(utils.ServerUnaryInterceptorZerolog())
+	server := grpc.NewServer(
+		utils.ServerUnaryInterceptorZerolog(),
+		utils.ServerStreamInterceptorZerolog())
+	grpc_health_v1.RegisterHealthServer(server, srv)
 	proto.RegisterProducerServer(server, srv)
 	proto.RegisterConsumerServer(server, srv)
-	grpc_health_v1.RegisterHealthServer(server, srv)
 
-	utils.Logger.Warn().
+	utils.Logger.Info().
 		Str("base", srv.cfg.pathBase).
 		Str("url", srv.cfg.endpoint).
 		Msg("starting")

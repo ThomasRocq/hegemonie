@@ -57,7 +57,7 @@ mkdir -p "${OUT}/evt"
 
 # Generate the database for a world
 hege-mapper normalize < "${MAP}" > "${OUT}/map_seed.json"
-hege-mapper export --config "${DEFS}" "${OUT}" < "${OUT}/map_seed.json"
+hege-init --config "${DEFS}" "${OUT}" < "${OUT}/map_seed.json"
 
 [[ -r "${OUT}/definitions/config.json" ]]
 [[ -r "${OUT}/definitions/knowledge.json" ]]

@@ -41,7 +41,7 @@ func serveGameUser(f *frontService) ActionPage {
 
 		cliReg := region.NewCityClient(f.cnxRegion)
 		for _, c := range uView.Characters {
-			l, err := cliReg.List(contextMacaronToGrpc(ctx, sess), &region.ListReq{Character: c.Id})
+			l, err := cliReg.List(contextMacaronToGrpc(ctx, sess), &region.CitiesByCharReq{Character: c.Id})
 			if err != nil {
 				flash.Warning("Error with " + c.Name)
 			} else {
@@ -69,7 +69,7 @@ func serveGameCharacter(f *frontService) ActionPage {
 
 		// Load the Cities managed by the current Character
 		cliReg := region.NewCityClient(f.cnxRegion)
-		list, err := cliReg.List(contextMacaronToGrpc(ctx, sess), &region.ListReq{Character: cView.Id})
+		list, err := cliReg.List(contextMacaronToGrpc(ctx, sess), &region.CitiesByCharReq{Character: cView.Id})
 		if err != nil {
 			flash.Warning(err.Error())
 			ctx.Redirect("/game/user")

@@ -8,6 +8,7 @@ package hegemonie_web_agent
 import (
 	"fmt"
 	"github.com/go-macaron/session"
+	mproto "github.com/jfsmig/hegemonie/pkg/map/proto"
 	region "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"gopkg.in/macaron.v1"
 )
@@ -22,7 +23,7 @@ func expandArmyView(f *frontService, aView *region.ArmyView) {
 }
 
 type ArmyCommandExpanded struct {
-	Order     int
+	SeqNum    int
 	CommandID int
 	Location  uint64
 
@@ -37,12 +38,13 @@ type ArmyCommandExpanded struct {
 
 func serveGameArmyDetail(f *frontService) ActionPage {
 	return func(ctx *macaron.Context, sess session.Store, flash *session.Flash) {
-		cid := atou(ctx.Query("cid"))
+		rid := ctx.Query("rid")
+		cid := ctx.Query("cid")
 		lid := atou(ctx.Query("lid"))
 		aid := atou(ctx.Query("aid"))
 		url := fmt.Sprintf("/game/land/armies?cid=%d&lid=%d", cid, lid)
 
-		uView, cView, err := f.authenticateCharacterFromSession(ctx, sess, cid)
+		uView, cView, err := f.authenticateCharacterFromSession(ctx, sess, rid, cid)
 		if err != nil {
 			flash.Warning("Auth error: " + err.Error())
 			ctx.Redirect("/game/user")
@@ -75,13 +77,14 @@ func serveGameArmyDetail(f *frontService) ActionPage {
 		// Build a printable list of commands
 		if len(aView.Commands) > 0 {
 			// Preload the description of the map
-			cliMap := region.NewMapClient(f.cnxRegion)
-			cities, err := f.loadAllCities(ctx0, cliMap)
+			cliReg := region.NewCityClient(f.cnxRegion)
+			cities, err := f.loadAllCities(ctx0, cliReg)
 			if err != nil {
 				flash.Warning("Map error: " + err.Error())
 				ctx.Redirect(url)
 				return
 			}
+			cliMap := mproto.NewMapClient(f.cnxMap)
 			locations, err := f.loadAllLocations(ctx0, cliMap)
 			if err != nil {
 				flash.Warning("Map error: " + err.Error())
@@ -91,9 +94,9 @@ func serveGameArmyDetail(f *frontService) ActionPage {
 			// Generate a list of ad-hoc structures
 			for idx, c := range aView.Commands {
 				loc := locations[c.Target]
-				city := cities[loc.CityId]
+				city := cities[loc.Id]
 				cmdv = append(cmdv, ArmyCommandExpanded{
-					Order:     idx,
+					SeqNum:    idx,
 					Location:  c.Target,
 					ArmyID:    aid,
 					CommandID: int(c.Type),

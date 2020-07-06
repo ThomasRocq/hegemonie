@@ -12,13 +12,15 @@ import (
 )
 
 type FormArmyId struct {
-	CharacterID uint64 `form:"cid" binding:"Required"`
+	RegionID    string `form:"reg" binding:"Required"`
+	CharacterID string `form:"cid" binding:"Required"`
 	CityID      uint64 `form:"lid" binding:"Required"`
 	ArmyID      uint64 `form:"aid" binding:"Required"`
 }
 
 type FormArmyTarget struct {
-	CharacterID uint64 `form:"cid" binding:"Required"`
+	RegionID    string `form:"reg" binding:"Required"`
+	CharacterID string `form:"cid" binding:"Required"`
 	CityID      uint64 `form:"lid" binding:"Required"`
 	ArmyID      uint64 `form:"aid" binding:"Required"`
 	TargetID    uint64 `form:"location" binding:"Required"`
@@ -26,10 +28,10 @@ type FormArmyTarget struct {
 
 func doArmyCancel(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyId) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Cancel(contextMacaronToGrpc(ctx, sess),
-				&region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID})
+				&region.ArmyId{Region: info.RegionID, Character: info.CharacterID, City: info.CityID, Army: info.ArmyID})
 		}
 		if err != nil {
 			flash.Warning(err.Error())
@@ -40,7 +42,7 @@ func doArmyCancel(f *frontService) macaron.Handler {
 
 func doArmyFlip(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyId) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Flip(contextMacaronToGrpc(ctx, sess),
 				&region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID})
@@ -54,7 +56,7 @@ func doArmyFlip(f *frontService) macaron.Handler {
 
 func doArmyFlea(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyId) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Flea(contextMacaronToGrpc(ctx, sess),
 				&region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID})
@@ -68,7 +70,7 @@ func doArmyFlea(f *frontService) macaron.Handler {
 
 func doArmyDisband(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyTarget) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Disband(contextMacaronToGrpc(ctx, sess), &region.ArmyTarget{
 				Id:     &region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID},
@@ -84,7 +86,7 @@ func doArmyDisband(f *frontService) macaron.Handler {
 
 func doArmyMove(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyTarget) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Move(contextMacaronToGrpc(ctx, sess), &region.ArmyMoveReq{
 				Id:     &region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID},
@@ -101,7 +103,7 @@ func doArmyMove(f *frontService) macaron.Handler {
 
 func doArmyWait(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyTarget) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Wait(contextMacaronToGrpc(ctx, sess), &region.ArmyTarget{
 				Id:     &region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID},
@@ -117,7 +119,7 @@ func doArmyWait(f *frontService) macaron.Handler {
 
 func doArmyDefend(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyTarget) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Defend(contextMacaronToGrpc(ctx, sess), &region.ArmyTarget{
 				Id:     &region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID},
@@ -133,7 +135,7 @@ func doArmyDefend(f *frontService) macaron.Handler {
 
 func doArmyAssault(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormArmyTarget) {
-		client, err := f.authAndConnect(ctx, sess, info.CharacterID)
+		client, err := f.authAndConnect(ctx, sess, info.RegionID, info.CharacterID)
 		if err == nil {
 			_, err = client.Attack(contextMacaronToGrpc(ctx, sess), &region.ArmyAssaultReq{
 				Id:     &region.ArmyId{Character: info.CharacterID, City: info.CityID, Army: info.ArmyID},
@@ -149,15 +151,15 @@ func doArmyAssault(f *frontService) macaron.Handler {
 }
 
 func (f FormArmyTarget) Url(page string) string {
-	return page + "?cid=" + utoa(f.CharacterID) + "&lid=" + utoa(f.CityID) + "&aid=" + utoa(f.ArmyID)
+	return page + "?cid=" + f.CharacterID + "&lid=" + utoa(f.CityID) + "&aid=" + utoa(f.ArmyID)
 }
 
 func (f FormArmyId) Url(page string) string {
-	return page + "?cid=" + utoa(f.CharacterID) + "&lid=" + utoa(f.CityID) + "&aid=" + utoa(f.ArmyID)
+	return page + "?cid=" + f.CharacterID + "&lid=" + utoa(f.CityID) + "&aid=" + utoa(f.ArmyID)
 }
 
-func (f *frontService) authAndConnect(ctx *macaron.Context, sess session.Store, cid uint64) (region.ArmyClient, error) {
-	_, _, err := f.authenticateCharacterFromSession(ctx, sess, cid)
+func (f *frontService) authAndConnect(ctx *macaron.Context, sess session.Store, reg, character string) (region.ArmyClient, error) {
+	_, _, err := f.authenticateCharacterFromSession(ctx, sess, reg, character)
 	if err != nil {
 		return nil, err
 	}

@@ -8,24 +8,23 @@
 
 const onField = function (field, v) { if (field != null) { field.value = v; } };
 
-const onForm = function (form, pos, cityId, cityName) {
+const onForm = function (form, pos, cityId) {
   let items = form.children;
   for (let i=0; i<items.length; i++) {
     let f = items[i];
     if (f.id === "Location") {
       f.value = pos;
-    } else if (f.id === "CityId") {
+    } else if (f.id === "CityID") {
       f.value = cityId;
-    } else if (f.id === "CityName") {
-      f.value = cityName;
     }
   }
 };
 
 const allForms = function (doc, pos, cityId, cityName) {
+  doc.getElementById("CityName").value = cityName;
   let forms = doc.getElementsByTagName('form');
   for (let i = 0; i < forms.length; i++) {
-    onForm(forms[i], pos, cityId, cityName);
+    onForm(forms[i], pos, cityId);
   }
 };
 
@@ -52,13 +51,15 @@ window.addEventListener("load", function() {
 {% include "map.tpl" %}
 
 <div><h2>Actions</h2>
+
+<p>Target: <input type="text" id="CityName" value=""/></p>
+
 <form if="action-move" method="post" action="/action/army/move">
     <input type="hidden" name="cid" value="{{Character.Id}}"/>
     <input type="hidden" name="lid" value="{{Land.Id}}"/>
     <input type="hidden" name="aid" value="{{Army.Id}}"/>
     <input type="hidden" name="location" id="Location" value=""/>
-    Target: <input type="text" id="CityName" value=""/><br/>
-    <input type="submit" value="Move"/>
+    <input type="submit" value="Move There"/>
 </form>
 
 <form if="action-wait" method="post" action="/action/army/wait">
@@ -66,8 +67,7 @@ window.addEventListener("load", function() {
     <input type="hidden" name="lid" value="{{Land.Id}}"/>
     <input type="hidden" name="aid" value="{{Army.Id}}"/>
     <input type="hidden" name="location" id="Location" value=""/>
-    Target: <input type="text" id="CityName" value=""/><br/>
-    <input type="submit" value="Go & Wait"/>
+    <input type="submit" value="Wait There"/>
 </form>
 
 <form if="action-defend" method="post" action="/action/army/defend">
@@ -75,8 +75,7 @@ window.addEventListener("load", function() {
     <input type="hidden" name="lid" value="{{Land.Id}}"/>
     <input type="hidden" name="aid" value="{{Army.Id}}"/>
     <input type="hidden" name="location" id="Location" value=""/>
-    Target: <input type="text" id="CityName" value=""/><br/>
-    <input type="submit" value="Go & Defend"/>
+    <input type="submit" value="Defend"/>
 </form>
 
 <form if="action-assault" method="post" action="/action/army/assault">
@@ -84,10 +83,16 @@ window.addEventListener("load", function() {
     <input type="hidden" name="lid" value="{{Land.Id}}"/>
     <input type="hidden" name="aid" value="{{Army.Id}}"/>
     <input type="hidden" name="location" id="Location" value=""/>
-    Target: <input type="text" id="CityName" value=""/><br/>
-    <input type="submit" value="Go & Attack"/>
+    <input type="submit" value="Assault"/>
 </form>
 
+<form if="action-disband" method="post" action="/action/army/cancel">
+    <input type="hidden" name="cid" value="{{Character.Id}}"/>
+    <input type="hidden" name="lid" value="{{Land.Id}}"/>
+    <input type="hidden" name="aid" value="{{Army.Id}}"/>
+    <input type="submit" value="Disband There"/>
+</form>
+<br/>
 <form if="action-disband" method="post" action="/action/army/flea">
     <input type="hidden" name="cid" value="{{Character.Id}}"/>
     <input type="hidden" name="lid" value="{{Land.Id}}"/>
@@ -106,37 +111,54 @@ window.addEventListener("load", function() {
     <input type="hidden" name="cid" value="{{Character.Id}}"/>
     <input type="hidden" name="lid" value="{{Land.Id}}"/>
     <input type="hidden" name="aid" value="{{Army.Id}}"/>
-    <input type="submit" value="Dismantle"/>
+    <input type="submit" value="Dismantle Here"/>
 </form>
 
 </div>
 
 <div><h2>Commands</h2>
 {% for cmd in Commands %}
-    <p>{{cmd.Order}}:
-    {% if cmd.CommandId == 0 %}
+    <p>{{cmd.SeqNum}}:
+    {% if cmd.CommandID == 0 %}
     Take selfies on
-    {% elif cmd.CommandId == 1 %}
+    {% elif cmd.CommandID == 1 %}
     Disband on
-    {% elif cmd.CommandId == 2 %}
+    {% elif cmd.CommandID == 2 %}
     Wait on
-    {% elif cmd.CommandId == 3 %}
+    {% elif cmd.CommandID == 3 %}
     Move to
-    {% elif cmd.CommandId == 4 %}
-    Attack and Overlord
-    {% elif cmd.CommandId == 5 %}
-    Attacke and Break a building on
-    {% elif cmd.CommandId == 6 %}
-    Attack and Massacre on
-    {% elif cmd.CommandId == 7 %}
-    Drop resources at
-    {% elif cmd.CommandId == 8 %}
-    Disband in
+    {% elif cmd.CommandID == 4 %}
+    Assault
+    {% elif cmd.CommandID == 5 %}
+    Go defend
     {% else %}
     ?
-    {% endif %}
-    {{cmd.CityName}} (id {{cmd.CityId}}, located at {{cmd.Location}})</p>
+    {% endif %} (type {{cmd.CommandID}})
+    {{cmd.CityName}} (id {{cmd.CityID}}, located at {{cmd.Location}})</p>
+    <form method="post" action="/action/army/command/top">
+    <input type="hidden" name="cid" value="{{Character.Id}}"/>
+    <input type="hidden" name="lid" value="{{Land.Id}}"/>
+    <input type="hidden" name="aid" value="{{Army.Id}}"/>
+    <input type="hidden" name="command" value="{{cmd.SeqNum}}"/>
+    <input type="submit" value="Top"/>
+    </form>
+    <form method="post" action="/action/army/command/drop">
+    <input type="hidden" name="cid" value="{{Character.Id}}"/>
+    <input type="hidden" name="lid" value="{{Land.Id}}"/>
+    <input type="hidden" name="aid" value="{{Army.Id}}"/>
+    <input type="hidden" name="command" value="{{cmd.SeqNum}}"/>
+    <input type="submit" value="Drop"/>
+    </form>
 {% endfor %}
+
+    <form method="post" action="/action/army/command/flush">
+    <input type="hidden" name="cid" value="{{Character.Id}}"/>
+    <input type="hidden" name="lid" value="{{Land.Id}}"/>
+    <input type="hidden" name="aid" value="{{Army.Id}}"/>
+    <input type="hidden" name="command" value="{{cmd.SeqNum}}"/>
+    <input type="submit" value="Top"/>
+    </form>
+
 </div>
 
 <div><h2>Payload</h2>

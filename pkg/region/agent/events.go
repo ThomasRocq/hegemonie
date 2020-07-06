@@ -21,12 +21,12 @@ type EventStore struct {
 
 type EventArmy struct {
 	store  *EventStore
-	charID uint64
+	charID string
 
 	SourceCityID uint64 `json:"SourceCityId"`
 	SourceCity   string `json:"SourceCity"`
 
-	ArmyID   uint64 `json:"ArmyId"`
+	ArmyID   string `json:"ArmyId"`
 	ArmyName string `json:"Army"`
 
 	ArmyCityID   uint64 `json:"ArmyCityId"`

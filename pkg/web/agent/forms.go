@@ -13,17 +13,24 @@ import (
 	"gopkg.in/macaron.v1"
 )
 
+var (
+	errAuthFailed = errors.New("No authenticated")
+)
+
 func (f *frontService) authenticateUserFromSession(ctx *macaron.Context, sess session.Store) (*auth.UserView, error) {
 	// Validate the session data
-	userID := ptou(sess.Get("userid"))
-	if userID == 0 {
-		return nil, errors.New("Not authenticated")
+	p := sess.Get("userid")
+	if p == nil {
+		return nil, errAuthFailed
+	}
+	userID, ok := p.(string)
+	if !ok || userID == "" {
+		return nil, errAuthFailed
 	}
 
 	// Authorize the character with the user
-	cliAuth := auth.NewAuthClient(f.cnxAuth)
-	return cliAuth.UserShow(contextMacaronToGrpc(ctx, sess),
-		&auth.UserShowReq{Id: userID})
+	cliAuth := auth.NewUserClient(f.cnxAuth)
+	return cliAuth.Show(contextMacaronToGrpc(ctx, sess), &auth.UserId{Id: userID})
 }
 
 func (f *frontService) authenticateAdminFromSession(ctx *macaron.Context, sess session.Store) (*auth.UserView, error) {
@@ -31,28 +38,36 @@ func (f *frontService) authenticateAdminFromSession(ctx *macaron.Context, sess s
 	if err != nil {
 		return nil, err
 	}
-	if !uView.Admin {
-		return nil, errors.New("No administration permissions")
+	if uView.State != auth.UserState_UserAdmin {
+		return nil, errAuthFailed
 	}
 	return uView, nil
 }
 
-func (f *frontService) authenticateCharacterFromSession(ctx *macaron.Context, sess session.Store, idChar uint64) (*auth.UserView, *auth.CharacterView, error) {
+func (f *frontService) authenticateCharacterFromSession(ctx *macaron.Context, sess session.Store, idRegion, idChar string) (*auth.UserView, *auth.CharacterView, error) {
 	// Validate the session data
-	userID := ptou(sess.Get("userid"))
-	if userID == 0 || idChar == 0 {
-		return nil, nil, errors.New("Not authenticated")
+	p := sess.Get("userid")
+	if p == nil {
+		return nil, nil, errAuthFailed
+	}
+	userID, ok := p.(string)
+	if !ok || userID == "" {
+		return nil, nil, errAuthFailed
 	}
 
 	// Authorize the character with the user
-	cliAuth := auth.NewAuthClient(f.cnxAuth)
-	uView, err := cliAuth.CharacterShow(contextMacaronToGrpc(ctx, sess),
-		&auth.CharacterShowReq{User: userID, Character: idChar})
+	ctx1 := contextMacaronToGrpc(ctx, sess)
+	cliUser := auth.NewUserClient(f.cnxAuth)
+	uView, err := cliUser.Show(ctx1, &auth.UserId{Id: userID})
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return uView, uView.Characters[0], nil
+	cliCharacter := auth.NewCharacterClient(f.cnxAuth)
+	cView, err := cliCharacter.Show(ctx1, &auth.CharacterId{Region: idRegion, Name: idChar})
+	if err != nil {
+		return nil, nil, err
+	}
+	return uView, cView, nil
 }
 
 type FormLogin struct {
@@ -60,32 +75,42 @@ type FormLogin struct {
 	UserPass string `form:"password" binding:"Required"`
 }
 
-func doLogin(f *frontService, m *macaron.Macaron) macaron.Handler {
+func doLogin(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, flash *session.Flash, sess session.Store, info FormLogin) {
 		// Cleanup a previous session
 		sess.Flush()
 
-		sessionID := uuid.New().String()
-		sess.Set("session-id", sessionID)
+		ctx1 := contextMacaronToGrpc(ctx, sess)
 
 		// Authorize the character with the user
 		cliAuth := auth.NewAuthClient(f.cnxAuth)
-		uView, err := cliAuth.UserAuth(contextMacaronToGrpc(ctx, sess),
-			&auth.UserAuthReq{Mail: info.UserMail, Pass: info.UserPass})
+		jwt, err := cliAuth.Login(ctx1,
+			&auth.LoginReq{Mail: info.UserMail, Pass: []byte(info.UserPass)})
+		if err != nil {
+			flash.Warning(err.Error())
+			ctx.Redirect("/")
+		}
+
+		// FIXME(jfs): Need for a RPC or just get the info from the token?
+		cliUser := auth.NewUserClient(f.cnxAuth)
+		uView, err := cliUser.GetByMail(ctx1, &auth.UserMail{Mail: info.UserMail})
 
 		if err != nil {
 			flash.Warning(err.Error())
 			ctx.Redirect("/")
 		} else {
-			strID := utoa(uView.Id)
-			ctx.SetSecureCookie("session", strID)
-			sess.Set("userid", strID)
+			ctx.SetSecureCookie("session", uView.UserId)
+			sessionID := uuid.New().String()
+			sess.Set("session-id", sessionID)
+			sess.Set("userid", uView.UserId)
+			sess.Set("authorization", jwt.Token)
+
 			ctx.Redirect("/game/user")
 		}
 	}
 }
 
-func doLogout(f *frontService, m *macaron.Macaron) macaron.Handler {
+func doLogout(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, s session.Store) {
 		ctx.SetSecureCookie("session", "")
 		s.Flush()

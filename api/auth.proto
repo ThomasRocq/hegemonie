@@ -8,103 +8,137 @@ syntax = "proto3";
 package hegemonie.auth.proto;
 
 service Auth {
-    rpc UserList (UserListReq) returns (UserListRep) {}
+  // Performs a simple authentication for the User
+  rpc Login (LoginReq) returns (LoginRep) {}
+}
 
-    rpc UserShow (UserShowReq) returns (UserView) {}
+service User {
+  // List all the users in the database
+  rpc List (UserListReq) returns (stream UserView) {}
 
-    rpc UserCreate (UserCreateReq) returns (UserView) {}
+  // Create a user bond to the given email address
+  rpc Create (UserCreateReq) returns (UserView) {}
 
-    rpc UserUpdate (UserUpdateReq) returns (None) {}
+  rpc Delete (UserId) returns (None) {}
 
-    rpc UserSuspend (UserSuspendReq) returns (None) {}
+  // Return a view of the User
+  rpc Show (UserId) returns (UserView) {}
 
-    rpc UserAuth (UserAuthReq) returns (UserView) {}
+  rpc GetByMail (UserMail) returns (UserView) {}
 
-    // Check the given Character can be managed by the given User and return
-    // an abstract of the Character information. The user information is also
-    // returned to save calls from the main service.
-    rpc CharacterShow (CharacterShowReq) returns (UserView) {}
+  // Make the User an admin.
+  rpc Promote (UserId) returns (None) {}
 
-    rpc CharacterUpdate (CharacterUpdateReq) returns (None) {}
+  // Remove the admin status from the User.
+  rpc Demote (UserId) returns (None) {}
 
-    rpc CharacterMigrate (CharacterMigrationReq) returns (None) {}
+  // Set the "suspended" status on the User
+  rpc Suspend (UserId) returns (None) {}
+
+  // Remove the "suspended" status on the User
+  rpc Resume (UserId) returns (None) {}
+
+  // List the Characters owned by the given User.
+  rpc Characters(UserId) returns (stream CharacterView) {}
+}
+
+service Character {
+  // Query a page of Characters owned by the given User.
+  rpc List (CharacterListReq) returns (stream CharacterView) {}
+
+  rpc Create (CharacterCreateReq) returns (CharacterView) {}
+
+  // Check the given Character can be managed by the given User and return
+  // an abstract of the Character information. The user information is also
+  // returned to save calls from the main service.
+  rpc Show (CharacterId) returns (CharacterView) {}
+
+  rpc Delete (CharacterId) returns (None) {}
+
+  rpc Promote (CharacterId) returns (None) {}
+
+  rpc Demote (CharacterId) returns (None) {}
+
+  rpc Suspend (CharacterId) returns (None) {}
+
+  rpc Resume (CharacterId) returns (None) {}
 }
 
 message None {}
 
-message UserCreateReq {
-    string mail = 1;
+message UserId {
+  string id = 1;
 }
 
-message UserUpdateReq {
-    uint64 id = 1;
-    string pass = 2;
-    string name = 3;
+message UserMail {
+  string mail = 1;
 }
 
-message UserAuthReq {
-    string mail = 1;
-    string pass = 2;
+message CharacterId {
+  string region = 1;
+  string name = 2;
+  string user = 3;  // Optional
 }
 
-message UserShowReq {
-    uint64 id = 1;
-    string mail = 2;
-    bool active = 3;
+enum UserState {
+  UserUnknown = 0;
+  UserInvited = 1;
+  UserActive = 2;
+  UserAdmin = 3;
+  UserSuspended = 4;
+  UserDeleted = 5;
 }
 
-message NamedItem {
-    uint64 id = 1;
-    string name = 2;
-}
-
-message CharacterView {
-    uint64 id = 1;
-    string region = 2;
-    string name = 3;
-    bool off = 4;
-    repeated NamedItem cities = 5;
+enum CharacterState {
+  CharacterUnknown = 0;
+  CharacterActive = 1;
+  CharacterSuper = 2;
+  CharacterSuspended = 3;
+  CharacterDeleted = 4;
 }
 
 message UserView {
-    uint64 id = 1;
-    string mail = 2;
-    string name = 3;
-    bool inactive = 4;
-    bool suspended = 5;
-    bool admin = 6;
-    repeated CharacterView characters = 7;
+  string userId = 1;
+  string mail = 2;
+  string name = 3;
+  UserState state = 4;
 }
 
-message UserSuspendReq {
-    uint64 id = 1;
-    string name = 2;
+message CharacterView {
+  string userId = 1;
+  string charId = 2;
+  string name = 3;
+  string region = 4;
+  CharacterState state = 5;
+}
+
+message UserCreateReq {
+  string mail = 1;
+  bytes pass = 2;
+}
+
+message LoginReq {
+  string mail = 1;
+  bytes pass = 2;
+}
+
+message LoginRep {
+  string token = 1;
 }
 
 message UserListReq {
-    uint64 marker = 1;
-    uint64 limit = 2;
+  string marker = 1;
+  uint32 limit = 2;
 }
 
-message UserListRep {
-    repeated UserView items = 1;
+message CharacterListReq {
+  string region = 1;
+  string marker = 2;
+  string user = 3;  // optional
 }
 
-message CharacterShowReq {
-    uint64 user = 1;
-    uint64 character = 2;
-}
-
-message CharacterUpdateReq {
-    uint64 user = 1;
-    uint64 character = 2;
-    string name = 3;
-    bool off = 4;
-    bool deleted = 5;
-}
-
-message CharacterMigrationReq {
-    uint64 user = 1;
-    uint64 character = 2;
-    string region = 3;
+message CharacterCreateReq {
+  string region = 1;
+  string name = 2;
+  string user = 3;
 }
