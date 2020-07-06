@@ -133,9 +133,9 @@ enum ArmyCommandType {
     // Useful to let the attitude play and enter attack/defense on local fights
     Move = 3;
     // Move to the location and join the attack of the city
-    Attack = 6;
+    Attack = 4;
     // Move to the location and join the defense of the local city
-    Defend = 7;
+    Defend = 5;
 }
 
 message ArmyMoveReq {

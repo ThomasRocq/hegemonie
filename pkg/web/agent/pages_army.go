@@ -22,7 +22,7 @@ func expandArmyView(f *frontService, aView *region.ArmyView) {
 }
 
 type ArmyCommandExpanded struct {
-	Order     int
+	SeqNum    int
 	CommandID int
 	Location  uint64
 
@@ -93,7 +93,7 @@ func serveGameArmyDetail(f *frontService) ActionPage {
 				loc := locations[c.Target]
 				city := cities[loc.CityId]
 				cmdv = append(cmdv, ArmyCommandExpanded{
-					Order:     idx,
+					SeqNum:    idx,
 					Location:  c.Target,
 					ArmyID:    aid,
 					CommandID: int(c.Type),
