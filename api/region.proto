@@ -318,12 +318,22 @@ message CityPolitics {
   repeated uint64 lieges = 2;
 }
 
+message PublicCity {
+  uint64 id = 1;
+  string name = 2;
+  int32 alignment = 4;
+  int32 chaos = 5;
+  uint32 politics = 6;
+  uint32 cult = 7;
+  uint32 ethny = 8;
+  int64 score = 9;
+}
+
 message CityView {
   uint64 id = 1;
   string name = 2;
   uint64 owner = 3;
   uint64 deputy = 4;
-  uint64 location = 5;
 
   int32 chaotic = 6;
   int32 alignment = 7;
@@ -417,18 +427,6 @@ message ListOfBuildingTypes {
 
 message ListOfKnowledgeTypes {
   repeated KnowledgeTypeView items = 1;
-}
-
-message PublicCity {
-  uint64 id = 1;
-  string name = 2;
-  uint64 location = 3;
-  int32 alignment = 4;
-  int32 chaos = 5;
-  uint32 politics = 6;
-  uint32 cult = 7;
-  uint32 ethny = 8;
-  int64 score = 9;
 }
 
 message Artifact {

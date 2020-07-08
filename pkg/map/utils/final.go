@@ -3,7 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package maputils
 
 import (
 	"log"
@@ -18,43 +18,44 @@ type Road struct {
 }
 
 type Map struct {
-	sites map[string]*Site
+	Id    string
+	Sites map[string]*Site
 }
 
 type Site struct {
-	raw   SiteRaw
-	peers map[*Site]bool
+	Raw   SiteRaw
+	Peers map[*Site]bool
 }
 
 func makeMap() Map {
 	return Map{
-		sites: make(map[string]*Site),
+		Sites: make(map[string]*Site),
 	}
 }
 
 func makeSite(raw SiteRaw) *Site {
 	return &Site{
-		raw:   raw,
-		peers: make(map[*Site]bool),
+		Raw:   raw,
+		Peers: make(map[*Site]bool),
 	}
 }
 
 func (s *Site) DotName() string {
-	if s.raw.City {
-		return s.raw.ID
+	if s.Raw.City {
+		return s.Raw.ID
 	}
-	return "r" + s.raw.ID
+	return "r" + s.Raw.ID
 }
 
 func (r *Road) Raw() RoadRaw {
-	return RoadRaw{Src: r.Src.raw.ID, Dst: r.Dst.raw.ID}
+	return RoadRaw{Src: r.Src.Raw.ID, Dst: r.Dst.Raw.ID}
 }
 
 func (m *Map) Debug() {
-	for _, s := range m.sites {
-		log.Println(s.raw)
-		for peer, _ := range s.peers {
-			log.Println("  ->", peer.raw)
+	for _, s := range m.Sites {
+		log.Println(s.Raw)
+		for peer, _ := range s.Peers {
+			log.Println("  ->", peer.Raw)
 		}
 	}
 }
@@ -63,10 +64,10 @@ func (m *Map) UniqueRoads() <-chan Road {
 	out := make(chan Road)
 	go func() {
 		seen := make(map[RoadRaw]bool)
-		for _, s := range m.sites {
-			for peer := range s.peers {
-				r0 := RoadRaw{Src: s.raw.ID, Dst: peer.raw.ID}
-				r1 := RoadRaw{Src: peer.raw.ID, Dst: s.raw.ID}
+		for _, s := range m.Sites {
+			for peer := range s.Peers {
+				r0 := RoadRaw{Src: s.Raw.ID, Dst: peer.Raw.ID}
+				r1 := RoadRaw{Src: peer.Raw.ID, Dst: s.Raw.ID}
 				if !seen[r0] && !seen[r1] {
 					seen[r0] = true
 					seen[r1] = true
@@ -82,16 +83,13 @@ func (m *Map) UniqueRoads() <-chan Road {
 func (m *Map) SortedSites() <-chan *Site {
 	out := make(chan *Site)
 	go func() {
-		keys := make([]string, 0, len(m.sites))
-		for k := range m.sites {
+		keys := make([]string, 0, len(m.Sites))
+		for k := range m.Sites {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		if !sort.StringsAreSorted(keys) {
-			panic("bug")
-		}
 		for _, k := range keys {
-			out <- m.sites[k]
+			out <- m.Sites[k]
 		}
 		close(out)
 	}()
@@ -99,9 +97,9 @@ func (m *Map) SortedSites() <-chan *Site {
 }
 
 func (m *Map) Raw() MapRaw {
-	rm := makeRawMap()
+	rm := MakeRawMap()
 	for s := range m.SortedSites() {
-		rm.Sites = append(rm.Sites, s.raw)
+		rm.Sites = append(rm.Sites, s.Raw)
 	}
 	for r := range m.UniqueRoads() {
 		rm.Roads = append(rm.Roads, r.Raw())
@@ -111,15 +109,15 @@ func (m *Map) Raw() MapRaw {
 
 func (m *Map) DeepCopy() Map {
 	mFinal := makeMap()
-	for id, site := range m.sites {
-		mFinal.sites[id] = makeSite(site.raw)
+	for id, site := range m.Sites {
+		mFinal.Sites[id] = makeSite(site.Raw)
 	}
-	for _, s := range m.sites {
-		src := mFinal.sites[s.raw.ID]
-		for d := range s.peers {
-			dst := mFinal.sites[d.raw.ID]
-			src.peers[dst] = true
-			dst.peers[src] = true
+	for _, s := range m.Sites {
+		src := mFinal.Sites[s.Raw.ID]
+		for d := range s.Peers {
+			dst := mFinal.Sites[d.Raw.ID]
+			src.Peers[dst] = true
+			dst.Peers[src] = true
 		}
 	}
 	return mFinal
@@ -130,8 +128,8 @@ func (m *Map) ComputeBox() (xmin, xmax, ymin, ymax float64) {
 	const Min = -Max
 	xmin, ymin = Max, Max
 	xmax, ymax = Min, Min
-	for _, s := range m.sites {
-		x, y := s.raw.X, s.raw.Y
+	for _, s := range m.Sites {
+		x, y := s.Raw.X, s.Raw.Y
 		if x < xmin {
 			xmin = x
 		}
@@ -157,16 +155,16 @@ func (m *Map) ShiftAt(xabs, yabs float64) {
 }
 
 func (m *Map) Shift(xrel, yrel float64) {
-	for _, s := range m.sites {
-		s.raw.X += xrel
-		s.raw.Y += yrel
+	for _, s := range m.Sites {
+		s.Raw.X += xrel
+		s.Raw.Y += yrel
 	}
 }
 
 func (m *Map) ResizeRatio(xratio, yratio float64) {
-	for _, s := range m.sites {
-		s.raw.X *= xratio
-		s.raw.Y *= yratio
+	for _, s := range m.Sites {
+		s.Raw.X *= xratio
+		s.Raw.Y *= yratio
 	}
 }
 
@@ -197,19 +195,19 @@ func (m *Map) splitOneRoad(src, dst *Site, nbSegments uint) {
 		panic("bug")
 	}
 
-	xinc := (dst.raw.X - src.raw.X) / float64(nbSegments)
-	yinc := (dst.raw.Y - src.raw.Y) / float64(nbSegments)
+	xinc := (dst.Raw.X - src.Raw.X) / float64(nbSegments)
+	yinc := (dst.Raw.Y - src.Raw.Y) / float64(nbSegments)
 	segments := make([]*Site, 0, nbSegments+1)
 
-	delete(src.peers, dst)
-	delete(dst.peers, src)
+	delete(src.Peers, dst)
+	delete(dst.Peers, src)
 
 	// Create segment boundaries
 	segments = append(segments, src)
 	for i := uint(0); i < nbSegments-1; i++ {
 		last := segments[len(segments)-1]
-		x := math.Round(last.raw.X + xinc)
-		y := math.Round(last.raw.Y + yinc)
+		x := math.Round(last.Raw.X + xinc)
+		y := math.Round(last.Raw.Y + yinc)
 		id := "x-" + strconv.FormatInt(int64(x), 10) + "-" + strconv.FormatInt(int64(y), 10)
 		raw := SiteRaw{
 			ID:   id,
@@ -218,7 +216,7 @@ func (m *Map) splitOneRoad(src, dst *Site, nbSegments uint) {
 			Y:    y,
 		}
 		middle := makeSite(raw)
-		m.sites[middle.raw.ID] = middle
+		m.Sites[middle.Raw.ID] = middle
 		segments = append(segments, middle)
 	}
 	segments = append(segments, dst)
@@ -226,8 +224,8 @@ func (m *Map) splitOneRoad(src, dst *Site, nbSegments uint) {
 	// Link the segment boundaries
 	for i, end := range segments[1:] {
 		start := segments[i]
-		start.peers[end] = true
-		end.peers[start] = true
+		start.Peers[end] = true
+		end.Peers[start] = true
 	}
 }
 
@@ -235,8 +233,8 @@ func (m *Map) SplitLongRoads(max float64) Map {
 	// Work on a deep copy to iterate on the original map while we alter the copy
 	mCopy := m.DeepCopy()
 	for r := range m.UniqueRoads() {
-		src := mCopy.sites[r.Src.raw.ID]
-		dst := mCopy.sites[r.Dst.raw.ID]
+		src := mCopy.Sites[r.Src.Raw.ID]
+		dst := mCopy.Sites[r.Dst.Raw.ID]
 		dist := distance(src, dst)
 		if max < dist {
 			mCopy.splitOneRoad(src, dst, uint(math.Ceil(dist/max)))
@@ -246,17 +244,17 @@ func (m *Map) SplitLongRoads(max float64) Map {
 }
 
 func (m *Map) Noise(xjitter, yjitter float64) {
-	for _, s := range m.sites {
-		if s.raw.City {
+	for _, s := range m.Sites {
+		if s.Raw.City {
 			continue
 		}
-		s.raw.X += (0.5 - rand.Float64()) * xjitter
-		s.raw.Y += (0.5 - rand.Float64()) * yjitter
+		s.Raw.X += (0.5 - rand.Float64()) * xjitter
+		s.Raw.Y += (0.5 - rand.Float64()) * yjitter
 	}
 }
 
 func distance(src, dst *Site) float64 {
-	dx := (dst.raw.X - src.raw.X)
-	dy := (dst.raw.Y - src.raw.Y)
+	dx := (dst.Raw.X - src.Raw.X)
+	dy := (dst.Raw.Y - src.Raw.Y)
 	return math.Sqrt(dx*dx + dy*dy)
 }

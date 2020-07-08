@@ -24,7 +24,6 @@ func main() {
 	rootCmd.AddCommand(CommandSplit())
 	rootCmd.AddCommand(CommandDot())
 	rootCmd.AddCommand(CommandSvg())
-	rootCmd.AddCommand(CommandExport())
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln("Command error:", err)

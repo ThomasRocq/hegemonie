@@ -38,7 +38,7 @@ func (m *Map) getNextID() uint64 {
 	return atomic.AddUint64(&m.nextID, 1)
 }
 
-func (m *Map) CellGet(id uint64) *MapVertex {
+func (m *Map) CellGet(id uint64) *Vertex {
 	return m.Cells.Get(id)
 }
 
@@ -46,21 +46,21 @@ func (m *Map) CellHas(id uint64) bool {
 	return m.Cells.Has(id)
 }
 
-func (m *Map) CellCreate() *MapVertex {
+func (m *Map) CellCreate() *Vertex {
 	id := m.getNextID()
-	c := &MapVertex{ID: id}
+	c := &Vertex{ID: id}
 	m.Cells.Add(c)
 	return c
 }
 
 // Raw creation of an edge, with no check the Source and Destination exist
 // The set of roads isn't sorted afterwards
-func (m *Map) RoadCreateRaw(src, dst uint64) *MapEdge {
+func (m *Map) RoadCreateRaw(src, dst uint64) *Edge {
 	if src == dst || src == 0 || dst == 0 {
 		panic("Invalid Edge parameters")
 	}
 
-	e := &MapEdge{src, dst}
+	e := &Edge{src, dst}
 	m.Roads = append(m.Roads, e)
 	return e
 }
@@ -78,9 +78,9 @@ func (m *Map) RoadCreate(src, dst uint64, check bool) error {
 	}
 
 	if r := m.Roads.Get(src, dst); r != nil {
-		return errors.New("MapEdge exists")
+		return errors.New("Edge exists")
 	}
-	m.Roads.Add(&MapEdge{src, dst})
+	m.Roads.Add(&Edge{src, dst})
 	return nil
 }
 

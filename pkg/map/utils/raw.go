@@ -3,28 +3,31 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package maputils
 
 import (
 	"fmt"
 )
 
 type SiteRaw struct {
-	ID   string `json:"Id"`
-	X, Y float64
+	ID   string  `json:"id"`
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
 	City bool
 }
 
 type RoadRaw struct {
-	Src, Dst string
+	Src string `json:"src"`
+	Dst string `json:"dst"`
 }
 
 type MapRaw struct {
-	Sites []SiteRaw
-	Roads []RoadRaw
+	ID    string    `json:"id"`
+	Sites []SiteRaw `json:"sites"`
+	Roads []RoadRaw `json:"roads"`
 }
 
-func makeRawMap() MapRaw {
+func MakeRawMap() MapRaw {
 	return MapRaw{
 		Sites: make([]SiteRaw, 0),
 		Roads: make([]RoadRaw, 0),
@@ -36,21 +39,21 @@ func (mr *MapRaw) Finalize() (Map, error) {
 	m := makeMap()
 
 	for _, s := range mr.Sites {
-		m.sites[s.ID] = &Site{
-			raw:   s,
-			peers: make(map[*Site]bool),
+		m.Sites[s.ID] = &Site{
+			Raw:   s,
+			Peers: make(map[*Site]bool),
 		}
 	}
 	for _, r := range mr.Roads {
-		if src, ok := m.sites[r.Src]; !ok {
+		if src, ok := m.Sites[r.Src]; !ok {
 			err = fmt.Errorf("No such site [%s]", r.Src)
 			break
-		} else if dst, ok := m.sites[r.Dst]; !ok {
+		} else if dst, ok := m.Sites[r.Dst]; !ok {
 			err = fmt.Errorf("No such site [%s]", r.Dst)
 			break
 		} else {
-			src.peers[dst] = true
-			dst.peers[src] = true
+			src.Peers[dst] = true
+			dst.Peers[src] = true
 		}
 	}
 	return m, err

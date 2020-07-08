@@ -93,7 +93,7 @@ func serveGameArmyDetail(f *frontService) ActionPage {
 			// Generate a list of ad-hoc structures
 			for idx, c := range aView.Commands {
 				loc := locations[c.Target]
-				city := cities[loc.CityId]
+				city := cities[loc.Id]
 				cmdv = append(cmdv, ArmyCommandExpanded{
 					SeqNum:    idx,
 					Location:  c.Target,

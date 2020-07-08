@@ -16,7 +16,6 @@ type rawVertex struct {
 	ID   uint64 `json:"id"`
 	X    uint64 `json:"x"`
 	Y    uint64 `json:"y"`
-	City uint64 `json:"city"`
 }
 
 type rawEdge struct {
@@ -27,7 +26,6 @@ type rawEdge struct {
 type rawCity struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name"`
-	Cell uint64 `json:"cell"`
 }
 
 type rawMap struct {
@@ -57,7 +55,7 @@ func serveRegionMap(f *frontService) NoFlashPage {
 			return
 		}
 		for _, v := range vertices {
-			m.Cells[v.Id] = rawVertex{ID: v.Id, X: v.X, Y: v.Y, City: v.CityId}
+			m.Cells[v.Id] = rawVertex{ID: v.Id, X: v.X, Y: v.Y}
 		}
 
 		// FIXME(jfs): iterate in case of a truncated result
@@ -92,7 +90,7 @@ func serveRegionCities(f *frontService) NoFlashPage {
 			return
 		}
 		for _, v := range cities {
-			tab = append(tab, rawCity{ID: v.Id, Name: v.Name, Cell: v.Location})
+			tab = append(tab, rawCity{ID: v.Id, Name: v.Name})
 		}
 
 		ctx.JSON(200, tab)

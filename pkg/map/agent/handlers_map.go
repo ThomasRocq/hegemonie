@@ -7,7 +7,7 @@ package hegemonie_map_agent
 
 import (
 	"context"
-	"github.com/jfsmig/hegemonie/pkg/map/model"
+	"github.com/jfsmig/hegemonie/pkg/map/graph"
 	proto "github.com/jfsmig/hegemonie/pkg/map/proto"
 )
 
@@ -23,8 +23,7 @@ func (s *srvMap) Vertices(ctx context.Context, req *proto.ListVerticesReq) (*pro
 
 	rep := &proto.ListOfVertices{}
 	for _, x := range s.w.Cells.Slice(req.Marker, req.Max) {
-		rep.Items = append(rep.Items, &proto.Vertex{
-			Id: x.ID, X: x.X, Y: x.Y, CityId: x.City})
+		rep.Items = append(rep.Items, &proto.Vertex{Id: x.ID, X: x.X, Y: x.Y})
 	}
 	return rep, nil
 }

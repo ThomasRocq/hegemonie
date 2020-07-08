@@ -244,7 +244,8 @@ type Building struct {
 }
 
 type City struct {
-	// The unique ID of the current City
+	// The unique ID of the current City/
+	// It is identical to the ID of the location (Vertex) on the Map.
 	ID uint64 `json:"Id"`
 
 	// The unique ID of the main Character in charge of the City.
@@ -260,11 +261,6 @@ type City struct {
 
 	// Ratio of the produced resources automatically sent to the Overlord City.
 	TaxRate ResourcesMultiplier
-
-	// The unique ID of the Cell the current City is built on.
-	// This is redundant with the City field in the Cell structure.
-	// Both information must match.
-	Cell uint64
 
 	Assault *Fight `json:",omitempty"`
 

@@ -17,6 +17,7 @@ AUTO+= pkg/healthcheck/healthcheck.pb.go
 
 all: prepare
 	$(GO) install $(BASE)/cmd/gen-set
+	$(GO) install $(BASE)/cmd/hege-init
 	$(GO) install $(BASE)/cmd/hege-mapper
 	$(GO) install $(BASE)/cmd/heged
 	$(GO) install $(BASE)/cmd/hege

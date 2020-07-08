@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 )
 
+var errCityExists = errors.New("City exists at that location")
+
 func (w *World) WLock() { w.rw.Lock() }
 
 func (w *World) WUnlock() { w.rw.Unlock() }
@@ -50,13 +52,7 @@ func (w *World) CityGet(id uint64) *City {
 }
 
 func (w *World) CityGetAt(loc uint64) *City {
-	// TODO(jfs): Should we check the validity of the location?
-	for _, c := range w.Live.Cities {
-		if c.Cell == loc {
-			return c
-		}
-	}
-	return nil
+	return w.CityGet(loc)
 }
 
 func (w *World) CityCheck(id uint64) bool {
@@ -64,11 +60,11 @@ func (w *World) CityCheck(id uint64) bool {
 }
 
 func (w *World) CityCreateModel(loc uint64, model *City) (*City, error) {
-	// TODO(jfs): Should we check the validity of the location?
-	id := w.getNextID()
+	if w.Live.Cities.Has(loc) {
+		return nil, errCityExists
+	}
 	city := CopyCity(model)
-	city.ID = id
-	city.Cell = loc
+	city.ID = loc
 	w.Live.Cities.Add(city)
 	return city, nil
 }

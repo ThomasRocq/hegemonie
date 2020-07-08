@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	grpc_health_v1 "github.com/jfsmig/hegemonie/pkg/healthcheck"
-	mapgraph "github.com/jfsmig/hegemonie/pkg/map/model"
+	mapgraph "github.com/jfsmig/hegemonie/pkg/map/graph"
 	mproto "github.com/jfsmig/hegemonie/pkg/map/proto"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/spf13/cobra"

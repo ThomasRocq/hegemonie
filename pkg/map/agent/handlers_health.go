@@ -8,7 +8,7 @@ package hegemonie_map_agent
 import (
 	"context"
 	grpc_health_v1 "github.com/jfsmig/hegemonie/pkg/healthcheck"
-	"github.com/jfsmig/hegemonie/pkg/map/model"
+	"github.com/jfsmig/hegemonie/pkg/map/graph"
 )
 
 type srvHealth struct {

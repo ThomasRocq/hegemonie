@@ -18,7 +18,6 @@ var (
 func MakeCity() *City {
 	return &City{
 		ID:         0,
-		Cell:       0,
 		Units:      make(SetOfUnits, 0),
 		Buildings:  make(SetOfBuildings, 0),
 		Knowledges: make(SetOfKnowledges, 0),
@@ -136,8 +135,7 @@ func (c *City) CreateEmptyArmy(w *World) *Army {
 	a := &Army{
 		ID:       aid,
 		City:     c,
-		Cell:     c.Cell,
-		Fight:    0,
+		Cell:     c.ID,
 		Name:     fmt.Sprintf("A-%d", aid),
 		Units:    make(SetOfUnits, 0),
 		Postures: []int64{int64(c.ID)},

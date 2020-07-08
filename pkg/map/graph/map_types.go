@@ -5,8 +5,8 @@
 
 package mapgraph
 
-// A MapEdge is an edge if the transportation directed graph
-type MapEdge struct {
+// A Edge is an edge if the transportation directed graph
+type Edge struct {
 	// Unique identifier of the source Cell
 	S uint64 `json:"src"`
 
@@ -14,8 +14,8 @@ type MapEdge struct {
 	D uint64 `json:"dst"`
 }
 
-// A MapVertex is a vertex in the transportation directed graph
-type MapVertex struct {
+// A Vertex is a vertex in the transportation directed graph
+type Vertex struct {
 	// The unique identifier of the current cell.
 	ID uint64 `json:"id"`
 
@@ -25,9 +25,6 @@ type MapVertex struct {
 	// Location of the Cell on the map. Used for rendering
 	X uint64 `json:"x"`
 	Y uint64 `json:"y"`
-
-	// The unique ID of the city present at this location.
-	City uint64 `json:"city,omitempty"`
 }
 
 // A Map is a directed graph destined to be used as a transport network,
@@ -40,6 +37,6 @@ type Map struct {
 	steps  map[vector]uint64
 }
 
-type SetOfEdges []*MapEdge
+type SetOfEdges []*Edge
 
 //go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID mapgraph ./map_auto.go *MapVertex SetOfVertices

@@ -7,13 +7,10 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/jfsmig/hegemonie/pkg/map/utils"
 	"os"
 
-	auth "github.com/jfsmig/hegemonie/pkg/auth/model"
-	"github.com/jfsmig/hegemonie/pkg/map/model"
-	region "github.com/jfsmig/hegemonie/pkg/region/model"
 	"github.com/spf13/cobra"
 )
 
@@ -26,13 +23,13 @@ func CommandNormalize() *cobra.Command {
 			decoder := json.NewDecoder(os.Stdin)
 			encoder := json.NewEncoder(os.Stdout)
 
-			var raw MapRaw
+			var raw maputils.MapRaw
 			err = decoder.Decode(&raw)
 			if err != nil {
 				return err
 			}
 
-			var m Map
+			var m maputils.Map
 			m, err = raw.Finalize()
 			if err != nil {
 				return err
@@ -62,13 +59,13 @@ func CommandSplit() *cobra.Command {
 			encoder := json.NewEncoder(os.Stdout)
 			encoder.SetIndent("", " ")
 
-			var raw MapRaw
+			var raw maputils.MapRaw
 			err = decoder.Decode(&raw)
 			if err != nil {
 				return err
 			}
 
-			var m Map
+			var m maputils.Map
 			m, err = raw.Finalize()
 			if err != nil {
 				return err
@@ -100,13 +97,13 @@ func CommandDot() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			decoder := json.NewDecoder(os.Stdin)
 
-			var raw MapRaw
+			var raw maputils.MapRaw
 			err = decoder.Decode(&raw)
 			if err != nil {
 				return err
 			}
 
-			var m Map
+			var m maputils.Map
 			m, err = raw.Finalize()
 			if err != nil {
 				return err
@@ -132,13 +129,13 @@ func CommandSvg() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			decoder := json.NewDecoder(os.Stdin)
 
-			var raw MapRaw
+			var raw maputils.MapRaw
 			err = decoder.Decode(&raw)
 			if err != nil {
 				return err
 			}
 
-			var m Map
+			var m maputils.Map
 			m, err = raw.Finalize()
 			if err != nil {
 				return err
@@ -161,7 +158,7 @@ func CommandSvg() *cobra.Command {
 			fmt.Println(`<g>`)
 			for r := range m.UniqueRoads() {
 				fmt.Printf(`<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="black" stroke-width="1"/>
-`, int64(r.Src.raw.X), int64(r.Src.raw.Y), int64(r.Dst.raw.X), int64(r.Dst.raw.Y))
+`, int64(r.Src.Raw.X), int64(r.Src.Raw.Y), int64(r.Dst.Raw.X), int64(r.Dst.Raw.Y))
 			}
 			fmt.Println(`</g>`)
 			fmt.Println(`<g>`)
@@ -169,13 +166,13 @@ func CommandSvg() *cobra.Command {
 				color := `white`
 				radius := 5
 				stroke := 1
-				if s.raw.City {
+				if s.Raw.City {
 					color = `gray`
 					radius = 10
 					stroke = 1
 				}
 				fmt.Printf(`<circle id="%s" class="clickable" cx="%d" cy="%d" r="%d" stroke="black" stroke-width="%d" fill="%s"/>
-`, s.raw.ID, int64(s.raw.X), int64(s.raw.Y), radius, stroke, color)
+`, s.Raw.ID, int64(s.Raw.X), int64(s.Raw.Y), radius, stroke, color)
 			}
 			fmt.Println(`</g>`)
 			fmt.Println(`</svg>`)
@@ -183,146 +180,5 @@ func CommandSvg() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&flagStandalone, "standalone", "1", false, "Also generate the xml header")
-	return cmd
-}
-
-func initDbAuthentication(path string) error {
-	var aaa auth.Db
-	aaa.Init()
-	aaa.ReHash()
-
-	u, err := aaa.CreateUser("admin@hegemonie.be")
-	if err != nil {
-		return err
-	}
-	u.Rename("Super Admin").SetRawPassword(":plop").Promote()
-
-	_, err = aaa.CreateCharacter(u.ID, "Waku", "Calaquyr")
-	if err != nil {
-		return err
-	}
-
-	var f *os.File
-	f, err = os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	encoder := json.NewEncoder(f)
-	encoder.SetIndent("", " ")
-	return encoder.Encode(aaa.UsersByID)
-}
-
-func loadMap(pathIn string) (mapgraph.Map, region.World, error) {
-	var raw MapRaw
-	var m Map
-	var w region.World
-	var finalMap mapgraph.Map
-
-	decoder := json.NewDecoder(os.Stdin)
-	err := decoder.Decode(&raw)
-	if err != nil {
-		return finalMap, w, err
-	}
-
-	m, err = raw.Finalize()
-	if err != nil {
-		return finalMap, w, err
-	}
-
-	w.Init()
-	finalMap.Init()
-
-	// Load the configuration, because we need models
-	err = w.LoadDefinitionsFromFiles(pathIn)
-	if err != nil {
-		return finalMap, w, err
-	}
-
-	// Fill the world with cities and map cells
-	site2cell := make(map[*Site]*mapgraph.MapVertex)
-	for site := range m.SortedSites() {
-		cell := finalMap.CellCreate()
-		cell.X = uint64(site.raw.X)
-		cell.Y = uint64(site.raw.Y)
-		if site.raw.City {
-			city, err := w.CityCreateRandom(cell.ID)
-			if err != nil {
-				return finalMap, w, err
-			}
-			city.Name = site.raw.ID
-			city.Cell = cell.ID
-			cell.City = city.ID
-		}
-		site2cell[site] = cell
-	}
-	for road := range m.UniqueRoads() {
-		src := site2cell[road.Src]
-		dst := site2cell[road.Dst]
-		if err = finalMap.RoadCreate(src.ID, dst.ID, true); err != nil {
-			return finalMap, w, err
-		}
-		if err = finalMap.RoadCreate(dst.ID, src.ID, true); err != nil {
-			return finalMap, w, err
-		}
-	}
-
-	if err = w.PostLoad(); err != nil {
-		return finalMap, w, err
-	}
-	if err = w.Check(); err != nil {
-		return finalMap, w, err
-	}
-
-	return finalMap, w, nil
-}
-
-func CommandExport() *cobra.Command {
-	var config string
-
-	cmd := &cobra.Command{
-		Use:     "export",
-		Aliases: []string{"finish"},
-		Short:   "Export the map as JSON files as expected by a Region agent",
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var dirOut string
-
-			switch len(args) {
-			case 0:
-				return errors.New("Expected argument: path to the output directory")
-			case 1:
-				dirOut = args[0]
-			default:
-				return errors.New("")
-			}
-
-			finalMap, world, err := loadMap(config)
-
-			err = finalMap.SaveToFiles(dirOut)
-			if err != nil {
-				return err
-			}
-
-			err = world.SaveLiveToFiles(dirOut + "/live")
-			if err != nil {
-				return err
-			}
-
-			err = world.SaveDefinitionsToFiles(dirOut + "/definitions")
-			if err != nil {
-				return err
-			}
-
-			// Dump the authentication base
-			if err != nil {
-				err = initDbAuthentication(dirOut + "/auth.json")
-			}
-
-			return err
-		},
-	}
-
-	cmd.Flags().StringVarP(&config, "config", "c", "", "Configuration Directory used to load the City patterns")
 	return cmd
 }
