@@ -9,6 +9,7 @@ PROTOC=protoc
 COV_OUT=coverage.txt
 
 AUTO=  pkg/region/model/world_auto.go
+AUTO+= pkg/map/proto/map.pb.go
 AUTO+= pkg/auth/proto/auth.pb.go
 AUTO+= pkg/event/proto/event.pb.go
 AUTO+= pkg/region/proto/region.pb.go
@@ -25,6 +26,9 @@ prepare: $(AUTO)
 pkg/region/model/world_auto.go: pkg/region/model/world_types.go cmd/gen-set/main.go
 	-rm $@
 	$(GO) generate github.com/jfsmig/hegemonie/pkg/region/model
+
+pkg/map/proto/%.pb.go: api/map.proto
+	$(PROTOC) -I api api/map.proto --go_out=plugins=grpc:pkg/map/proto
 
 pkg/auth/proto/%.pb.go: api/auth.proto
 	$(PROTOC) -I api api/auth.proto --go_out=plugins=grpc:pkg/auth/proto

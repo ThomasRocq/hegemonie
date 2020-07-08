@@ -9,6 +9,7 @@ import (
 	"errors"
 	hegemonie_auth_agent "github.com/jfsmig/hegemonie/pkg/auth/agent"
 	hegemonie_event_agent "github.com/jfsmig/hegemonie/pkg/event/agent"
+	hegemonie_map_agent "github.com/jfsmig/hegemonie/pkg/map/agent"
 	hegemonie_region_agent "github.com/jfsmig/hegemonie/pkg/region/agent"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	hegemonie_web_agent "github.com/jfsmig/hegemonie/pkg/web/agent"
@@ -17,6 +18,10 @@ import (
 )
 
 func main() {
+	mapCmd := hegemonie_map_agent.Command()
+	mapCmd.Use = "region"
+	mapCmd.Aliases = []string{"reg"}
+
 	regCmd := hegemonie_region_agent.Command()
 	regCmd.Use = "region"
 	regCmd.Aliases = []string{"reg"}
@@ -42,6 +47,7 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(aaaCmd)
+	rootCmd.AddCommand(mapCmd)
 	rootCmd.AddCommand(regCmd)
 	rootCmd.AddCommand(evtCmd)
 	rootCmd.AddCommand(webCmd)

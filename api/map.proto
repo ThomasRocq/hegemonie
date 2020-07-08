@@ -1,0 +1,65 @@
+// Copyright (C) 2018-2020 Hegemonie's AUTHORS
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+syntax = "proto3";
+
+package hegemonie.map.proto;
+
+// 
+service Map {
+  // Paginated query for vertices
+  rpc Vertices(ListVerticesReq) returns (ListOfVertices) {}
+
+  // Paginated query for edges on
+  rpc Edges(ListEdgesReq) returns (ListOfEdges) {}
+
+  // Request a path computation on the map
+  rpc GetPath(PathRequest) returns (PathReply) {}
+}
+
+message ListVerticesReq {
+  uint64 marker = 1;
+  uint32 max = 2;
+}
+
+message ListEdgesReq {
+  uint64 markerSrc = 1;
+  uint64 markerDst = 2;
+  uint32 max = 3;
+}
+
+message ListOfVertices {
+  repeated Vertex items = 1;
+}
+
+message ListOfEdges {
+  repeated Edge items = 1;
+}
+
+message Vertex {
+  uint64 id = 1;
+  uint64 x = 2;
+  uint64 y = 3;
+  uint64 cityId = 4;
+}
+
+message Edge {
+  uint64 src = 1;
+  uint64 dst = 2;
+}
+
+message PathRequest {
+  // Source of the path
+  uint64 src = 1;
+  // Target of the path
+  uint64 dst = 2;
+  // How many max hops are expected
+  uint32 max = 3;
+}
+
+message PathReply {
+  repeated uint64 steps = 1;
+}
+

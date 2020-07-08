@@ -14,7 +14,8 @@ import (
 	"github.com/go-macaron/session"
 	_ "github.com/go-macaron/session/memcache"
 	"github.com/google/uuid"
-	region "github.com/jfsmig/hegemonie/pkg/region/proto"
+	mproto "github.com/jfsmig/hegemonie/pkg/map/proto"
+	rproto "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/spf13/cobra"
@@ -40,19 +41,21 @@ type frontService struct {
 	endpointRegion string
 	endpointAuth   string
 	endpointEvent  string
+	endpointMap    string
 
 	translations *i18n.Bundle
 
 	cnxRegion *grpc.ClientConn
 	cnxAuth   *grpc.ClientConn
 	cnxEvent  *grpc.ClientConn
+	cnxMap    *grpc.ClientConn
 
 	rw        sync.RWMutex
-	units     map[uint64]*region.UnitTypeView
-	buildings map[uint64]*region.BuildingTypeView
-	knowledge map[uint64]*region.KnowledgeTypeView
-	cities    map[uint64]*region.PublicCity
-	locations map[uint64]*region.Vertex
+	units     map[uint64]*rproto.UnitTypeView
+	buildings map[uint64]*rproto.BuildingTypeView
+	knowledge map[uint64]*rproto.KnowledgeTypeView
+	cities    map[uint64]*rproto.PublicCity
+	locations map[uint64]*mproto.Vertex
 }
 
 func Command() *cobra.Command {
@@ -165,6 +168,11 @@ func Command() *cobra.Command {
 				return err
 			}
 
+			front.cnxMap, err = grpc.Dial(front.endpointMap, grpc.WithInsecure())
+			if err != nil {
+				return err
+			}
+
 			go front.loopReload(context.Background())
 
 			return http.ListenAndServe(front.endpointNorth, m)
@@ -172,6 +180,8 @@ func Command() *cobra.Command {
 	}
 	agent.Flags().StringVar(&front.endpointNorth,
 		"endpoint", utils.DefaultEndpointWww, "TCP/IP North endpoint")
+	agent.Flags().StringVar(&front.endpointMap,
+		"map", "", "Map Server to connect to")
 	agent.Flags().StringVar(&front.endpointRegion,
 		"region", "", "World Server to connect to")
 	agent.Flags().StringVar(&front.endpointAuth,
@@ -218,13 +228,13 @@ func (f *frontService) loadTranslations() error {
 	})
 }
 
-func (f *frontService) loadAllCities(ctx context.Context, cli region.MapClient) (map[uint64]*region.PublicCity, error) {
+func (f *frontService) loadAllCities(ctx context.Context, cli rproto.CityClient) (map[uint64]*rproto.PublicCity, error) {
 	last := uint64(0)
-	tab := make(map[uint64]*region.PublicCity)
+	tab := make(map[uint64]*rproto.PublicCity)
 
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
-		l, err := cli.Cities(ctx, args)
+		args := &rproto.PaginatedQuery{Marker: last, Max: 1000}
+		l, err := cli.AllCities(ctx, args)
 		if err != nil {
 			return nil, err
 		}
@@ -240,12 +250,12 @@ func (f *frontService) loadAllCities(ctx context.Context, cli region.MapClient) 
 	}
 }
 
-func (f *frontService) loadAllLocations(ctx context.Context, cli region.MapClient) (map[uint64]*region.Vertex, error) {
+func (f *frontService) loadAllLocations(ctx context.Context, cli mproto.MapClient) (map[uint64]*mproto.Vertex, error) {
 	last := uint64(0)
-	tab := make(map[uint64]*region.Vertex)
+	tab := make(map[uint64]*mproto.Vertex)
 
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 10000}
+		args := &mproto.ListVerticesReq{Marker: last, Max: 10000}
 		l, err := cli.Vertices(ctx, args)
 		if err != nil {
 			return nil, err
@@ -262,12 +272,12 @@ func (f *frontService) loadAllLocations(ctx context.Context, cli region.MapClien
 	}
 }
 
-func (f *frontService) loadAllRoads(ctx context.Context, cli region.MapClient) ([]*region.Edge, error) {
+func (f *frontService) loadAllRoads(ctx context.Context, cli mproto.MapClient) ([]*mproto.Edge, error) {
 	var lastSrc, lastDst uint64
-	tab := make([]*region.Edge, 0)
+	tab := make([]*mproto.Edge, 0)
 
 	for {
-		args := &region.ListEdgesReq{MarkerSrc: lastSrc, MarkerDst: lastDst, Max: 10000}
+		args := &mproto.ListEdgesReq{MarkerSrc: lastSrc, MarkerDst: lastDst, Max: 10000}
 		l, err := cli.Edges(ctx, args)
 		if err != nil {
 			return nil, err
@@ -287,12 +297,12 @@ func (f *frontService) loadAllRoads(ctx context.Context, cli region.MapClient) (
 	}
 }
 
-func (f *frontService) loadAllUnits(ctx context.Context, cli region.DefinitionsClient) (map[uint64]*region.UnitTypeView, error) {
+func (f *frontService) loadAllUnits(ctx context.Context, cli rproto.DefinitionsClient) (map[uint64]*rproto.UnitTypeView, error) {
 	last := uint64(0)
-	tab := make(map[uint64]*region.UnitTypeView)
+	tab := make(map[uint64]*rproto.UnitTypeView)
 
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
+		args := &rproto.PaginatedQuery{Marker: last, Max: 1000}
 		l, err := cli.ListUnits(ctx, args)
 		if err != nil {
 			return nil, err
@@ -309,12 +319,12 @@ func (f *frontService) loadAllUnits(ctx context.Context, cli region.DefinitionsC
 	}
 }
 
-func (f *frontService) loadAllBuildings(ctx context.Context, cli region.DefinitionsClient) (map[uint64]*region.BuildingTypeView, error) {
+func (f *frontService) loadAllBuildings(ctx context.Context, cli rproto.DefinitionsClient) (map[uint64]*rproto.BuildingTypeView, error) {
 	last := uint64(0)
-	tab := make(map[uint64]*region.BuildingTypeView)
+	tab := make(map[uint64]*rproto.BuildingTypeView)
 
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
+		args := &rproto.PaginatedQuery{Marker: last, Max: 1000}
 		l, err := cli.ListBuildings(ctx, args)
 		if err != nil {
 			return nil, err
@@ -331,12 +341,12 @@ func (f *frontService) loadAllBuildings(ctx context.Context, cli region.Definiti
 	}
 }
 
-func (f *frontService) loadAllKnowledges(ctx context.Context, cli region.DefinitionsClient) (map[uint64]*region.KnowledgeTypeView, error) {
+func (f *frontService) loadAllKnowledges(ctx context.Context, cli rproto.DefinitionsClient) (map[uint64]*rproto.KnowledgeTypeView, error) {
 	last := uint64(0)
-	tab := make(map[uint64]*region.KnowledgeTypeView)
+	tab := make(map[uint64]*rproto.KnowledgeTypeView)
 
 	for {
-		args := &region.PaginatedQuery{Marker: last, Max: 1000}
+		args := &rproto.PaginatedQuery{Marker: last, Max: 1000}
 		l, err := cli.ListKnowledges(ctx, args)
 		if err != nil {
 			return nil, err
@@ -353,14 +363,14 @@ func (f *frontService) loadAllKnowledges(ctx context.Context, cli region.Definit
 	}
 }
 
-func (f *frontService) reload(ctx0 context.Context, cli region.DefinitionsClient, sessionID string) {
+func (f *frontService) reload(ctx0 context.Context, cli rproto.DefinitionsClient, sessionID string) {
 	ctx := metadata.AppendToOutgoingContext(ctx0, "session-id", sessionID)
 
 	var uerr, berr, kerr error
 	var wg sync.WaitGroup
-	var utv map[uint64]*region.UnitTypeView
-	var btv map[uint64]*region.BuildingTypeView
-	var ktv map[uint64]*region.KnowledgeTypeView
+	var utv map[uint64]*rproto.UnitTypeView
+	var btv map[uint64]*rproto.BuildingTypeView
+	var ktv map[uint64]*rproto.KnowledgeTypeView
 
 	wg.Add(3)
 	go func() {
@@ -403,12 +413,12 @@ func (f *frontService) reload(ctx0 context.Context, cli region.DefinitionsClient
 func (f *frontService) loopReload(ctx context.Context) {
 	sessionID := uuid.New().String()
 	for _, v := range []int{2, 4, 8, 16} {
-		cli := region.NewDefinitionsClient(f.cnxRegion)
+		cli := rproto.NewDefinitionsClient(f.cnxRegion)
 		f.reload(ctx, cli, sessionID)
 		<-time.After(time.Duration(v) * time.Second)
 	}
 	for {
-		cli := region.NewDefinitionsClient(f.cnxRegion)
+		cli := rproto.NewDefinitionsClient(f.cnxRegion)
 		f.reload(ctx, cli, sessionID)
 		<-time.After(61 * time.Second)
 	}

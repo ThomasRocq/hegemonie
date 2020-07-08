@@ -5,7 +5,7 @@
 
 package region
 
-import "testing"
-
-func TestSetOfBuildingType(t *testing.T) {
+// Map actions that are exposed to a World
+type MapView interface {
+	Step(src, dst uint64) (uint64, error)
 }

@@ -8,10 +8,9 @@ package hegemonie_region_agent
 import (
 	"context"
 	"github.com/jfsmig/hegemonie/pkg/region/model"
+	proto "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	proto "github.com/jfsmig/hegemonie/pkg/region/proto"
 )
 
 type srvArmy struct {
@@ -82,51 +81,31 @@ func (s *srvArmy) Flip(ctx context.Context, req *proto.ArmyId) (*proto.None, err
 
 func (s *srvArmy) Move(ctx context.Context, req *proto.ArmyMoveReq) (*proto.None, error) {
 	return &proto.None{}, s.wlockDo(req.Id, func(_ *region.City, army *region.Army) error {
-		target := s.w.Places.CellGet(req.Target)
-		if target == nil {
-			return status.Errorf(codes.NotFound, "Target Not found")
-		}
-		return army.DeferMove(s.w, target, region.ActionArgMove{})
+		return army.DeferMove(s.w, req.Target, region.ActionArgMove{})
 	})
 }
 
 func (s *srvArmy) Attack(ctx context.Context, req *proto.ArmyAssaultReq) (*proto.None, error) {
 	return &proto.None{}, s.wlockDo(req.Id, func(_ *region.City, army *region.Army) error {
-		target := s.w.Places.CellGet(req.Target)
-		if target == nil {
-			return status.Errorf(codes.NotFound, "Target Not found")
-		}
-		return army.DeferAttack(s.w, target, region.ActionArgAssault{})
+		return army.DeferAttack(s.w, req.Target, region.ActionArgAssault{})
 	})
 }
 
 func (s *srvArmy) Wait(ctx context.Context, req *proto.ArmyTarget) (*proto.None, error) {
 	return &proto.None{}, s.wlockDo(req.Id, func(_ *region.City, army *region.Army) error {
-		target := s.w.Places.CellGet(req.Target)
-		if target == nil {
-			return status.Errorf(codes.NotFound, "Target Not found")
-		}
-		return army.DeferWait(s.w, target)
+		return army.DeferWait(s.w, req.Target)
 	})
 }
 
 func (s *srvArmy) Defend(ctx context.Context, req *proto.ArmyTarget) (*proto.None, error) {
 	return &proto.None{}, s.wlockDo(req.Id, func(_ *region.City, army *region.Army) error {
-		target := s.w.Places.CellGet(req.Target)
-		if target == nil {
-			return status.Errorf(codes.NotFound, "Target Not found")
-		}
-		return army.DeferDefend(s.w, target)
+		return army.DeferDefend(s.w, req.Target)
 	})
 }
 
 func (s *srvArmy) Disband(ctx context.Context, req *proto.ArmyTarget) (*proto.None, error) {
 	return &proto.None{}, s.wlockDo(req.Id, func(_ *region.City, army *region.Army) error {
-		target := s.w.Places.CellGet(req.Target)
-		if target == nil {
-			return status.Errorf(codes.NotFound, "Target Not found")
-		}
-		return army.DeferDisband(s.w, target)
+		return army.DeferDisband(s.w, req.Target)
 	})
 }
 

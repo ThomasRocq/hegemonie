@@ -35,14 +35,9 @@ func (a *Army) Move(w *World) {
 		src := a.Cell
 		dst := cmd.Cell
 
-		// pSrc := w.Places.CellGet(src)
-		var pLocalCity *City
-		pLocal := w.Places.CellGet(a.Cell)
-		if pLocal != nil {
-			pLocalCity = w.CityGet(pLocal.City)
-		}
+		pLocalCity := w.CityGetAt(a.Cell)
 
-		nxt, err := w.Places.PathNextStep(src, dst)
+		nxt, err := w.mapView.Step(src, dst)
 		if err != nil || nxt == 0 {
 			if err != nil {
 				utils.Logger.Warn().Err(err).Uint64("src", src).Uint64("dst", dst).Send()
@@ -199,37 +194,37 @@ func (a *Army) Cancel(w *World) error {
 	return errors.New("Cancel NYI")
 }
 
-func (a *Army) DeferAttack(w *World, t *MapVertex, args ActionArgAssault) error {
+func (a *Army) DeferAttack(w *World, loc uint64, args ActionArgAssault) error {
 	var sb strings.Builder
 	err := json.NewEncoder(&sb).Encode(&args)
 	if err != nil {
 		return fmt.Errorf("Invalid action argument: %v", err.Error())
 	}
-	a.Targets = append(a.Targets, Command{Action: CmdCityAttack, Cell: t.ID, Args: sb.String()})
+	a.Targets = append(a.Targets, Command{Action: CmdCityAttack, Cell: loc, Args: sb.String()})
 	return nil
 }
 
-func (a *Army) DeferDefend(w *World, t *MapVertex) error {
-	a.Targets = append(a.Targets, Command{Action: CmdCityDefend, Cell: t.ID})
+func (a *Army) DeferDefend(w *World, loc uint64) error {
+	a.Targets = append(a.Targets, Command{Action: CmdCityDefend, Cell: loc})
 	return nil
 }
 
-func (a *Army) DeferDisband(w *World, t *MapVertex) error {
-	a.Targets = append(a.Targets, Command{Action: CmdCityDisband, Cell: t.ID})
+func (a *Army) DeferDisband(w *World, loc uint64) error {
+	a.Targets = append(a.Targets, Command{Action: CmdCityDisband, Cell: loc})
 	return nil
 }
 
-func (a *Army) DeferMove(w *World, t *MapVertex, args ActionArgMove) error {
+func (a *Army) DeferMove(w *World, loc uint64, args ActionArgMove) error {
 	var sb strings.Builder
 	err := json.NewEncoder(&sb).Encode(&args)
 	if err != nil {
 		return fmt.Errorf("Invalid action argument: %v", err.Error())
 	}
-	a.Targets = append(a.Targets, Command{Action: CmdMove, Cell: t.ID, Args: sb.String()})
+	a.Targets = append(a.Targets, Command{Action: CmdMove, Cell: loc, Args: sb.String()})
 	return nil
 }
 
-func (a *Army) DeferWait(w *World, t *MapVertex) error {
-	a.Targets = append(a.Targets, Command{Action: CmdWait, Cell: t.ID})
+func (a *Army) DeferWait(w *World, loc uint64) error {
+	a.Targets = append(a.Targets, Command{Action: CmdWait, Cell: loc})
 	return nil
 }

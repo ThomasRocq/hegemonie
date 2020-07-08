@@ -8,6 +8,7 @@ package hegemonie_web_agent
 import (
 	"fmt"
 	"github.com/go-macaron/session"
+	mproto "github.com/jfsmig/hegemonie/pkg/map/proto"
 	region "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"gopkg.in/macaron.v1"
 )
@@ -75,13 +76,14 @@ func serveGameArmyDetail(f *frontService) ActionPage {
 		// Build a printable list of commands
 		if len(aView.Commands) > 0 {
 			// Preload the description of the map
-			cliMap := region.NewMapClient(f.cnxRegion)
-			cities, err := f.loadAllCities(ctx0, cliMap)
+			cliReg := region.NewCityClient(f.cnxRegion)
+			cities, err := f.loadAllCities(ctx0, cliReg)
 			if err != nil {
 				flash.Warning("Map error: " + err.Error())
 				ctx.Redirect(url)
 				return
 			}
+			cliMap := mproto.NewMapClient(f.cnxMap)
 			locations, err := f.loadAllLocations(ctx0, cliMap)
 			if err != nil {
 				flash.Warning("Map error: " + err.Error())

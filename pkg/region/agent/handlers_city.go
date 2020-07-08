@@ -20,17 +20,25 @@ type srvCity struct {
 	w   *region.World
 }
 
-func (s *srvCity) List(ctx context.Context, req *proto.ListReq) (*proto.ListOfCities, error) {
+type selectorFunc func() []*region.City
+
+func (s *srvCity) replyCities(ctx context.Context, selector selectorFunc) (*proto.ListOfCities, error) {
 	s.w.RLock()
 	defer s.w.RUnlock()
 
 	rep := &proto.ListOfCities{}
-	cities := s.w.Cities(req.Character)
-
-	for _, c := range cities {
+	for _, c := range selector() {
 		rep.Items = append(rep.Items, ShowCityPublic(s.w, c, false))
 	}
 	return rep, nil
+}
+
+func (s *srvCity) List(ctx context.Context, req *proto.CitiesByCharReq) (*proto.ListOfCities, error) {
+	return s.replyCities(ctx, func() []*region.City { return s.w.Cities(req.Character) })
+}
+
+func (s *srvCity) AllCities(ctx context.Context, req *proto.PaginatedQuery) (*proto.ListOfCities, error) {
+	return s.replyCities(ctx, func() []*region.City { return s.w.Live.Cities.Slice(req.Marker, req.Max) })
 }
 
 func (s *srvCity) Show(ctx context.Context, req *proto.CityId) (*proto.CityView, error) {

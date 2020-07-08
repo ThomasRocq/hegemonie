@@ -6,11 +6,11 @@
 package region
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"sort"
+
+	"github.com/jfsmig/hegemonie/pkg/utils"
 )
 
 func (w *World) SetNotifier(n Notifier) {
@@ -22,7 +22,6 @@ func (w *World) Init() {
 	defer w.WUnlock()
 
 	w.SetNotifier(&noEvt{})
-	w.Places.Init()
 
 	w.nextID = 1
 	w.Live.Cities = make(SetOfCities, 0)
@@ -33,13 +32,6 @@ func (w *World) Init() {
 }
 
 func (w *World) Check() error {
-	if !sort.IsSorted(&w.Places.Cells) {
-		return errors.New("locations unsorted")
-	}
-	if !sort.IsSorted(&w.Places.Roads) {
-		return errors.New("roads unsorted")
-	}
-
 	if !sort.IsSorted(&w.Definitions.Knowledges) {
 		return errors.New("knowledge types unsorted")
 	}
@@ -94,8 +86,6 @@ func (w *World) Check() error {
 
 func (w *World) PostLoad() error {
 	// Sort all the lookup arrays
-	sort.Sort(&w.Places.Cells)
-	sort.Sort(&w.Places.Roads)
 	sort.Sort(&w.Definitions.Knowledges)
 	sort.Sort(&w.Definitions.Buildings)
 	sort.Sort(&w.Definitions.Units)
@@ -175,66 +165,26 @@ func (w *World) PostLoad() error {
 	return nil
 }
 
-type persistencyMapping []cfgSection
-
-type cfgSection struct {
-	path string
-	obj  interface{}
-}
-
-func liveSections(p string, w *World) persistencyMapping {
+func liveSections(p string, w *World) utils.PersistencyMapping {
 	if p == "" {
 		panic("Invalid path")
 	}
-	return []cfgSection{
-		{p + "/map.json", &w.Places},
+	return []utils.CfgSection{
 		{p + "/cities.json", &w.Live.Cities},
 		{p + "/fights.json", &w.Live.Fights},
 	}
 }
 
-func defsSections(p string, w *World) persistencyMapping {
+func defsSections(p string, w *World) utils.PersistencyMapping {
 	if p == "" {
 		panic("Invalid path")
 	}
-	return []cfgSection{
+	return []utils.CfgSection{
 		{p + "/config.json", &w.Config},
 		{p + "/units.json", &w.Definitions.Units},
 		{p + "/buildings.json", &w.Definitions.Buildings},
 		{p + "/knowledge.json", &w.Definitions.Knowledges},
 	}
-}
-
-func (p persistencyMapping) dump() error {
-	for _, section := range p {
-		out, err := os.Create(section.path)
-		if err != nil {
-			return fmt.Errorf("Failed to save the World in [%s]: %s", section.path, err.Error())
-		}
-		encoder := json.NewEncoder(out)
-		encoder.SetIndent("", " ")
-		err = encoder.Encode(section.obj)
-		_ = out.Close()
-		if err != nil {
-			return fmt.Errorf("Failed to save the World in [%s]: %s", section.path, err.Error())
-		}
-	}
-	return nil
-}
-
-func (p persistencyMapping) load() error {
-	for _, section := range p {
-		in, err := os.Open(section.path)
-		if err != nil {
-			return fmt.Errorf("Failed to load the World from [%s]: %s", section.path, err.Error())
-		}
-		err = json.NewDecoder(in).Decode(section.obj)
-		in.Close()
-		if err != nil {
-			return fmt.Errorf("Failed to load the World from [%s]: %s", section.path, err.Error())
-		}
-	}
-	return nil
 }
 
 // Save the current state of the World as a set of JSON objects, each for a dataset
@@ -246,7 +196,7 @@ func (p persistencyMapping) load() error {
 func (w *World) SaveLiveToFiles(basePath string) error {
 	err := os.MkdirAll(basePath, 0755)
 	if err == nil {
-		err = liveSections(basePath, w).dump()
+		err = liveSections(basePath, w).Dump()
 	}
 	return err
 }
@@ -261,7 +211,7 @@ func (w *World) SaveLiveToFiles(basePath string) error {
 func (w *World) SaveDefinitionsToFiles(basePath string) error {
 	err := os.MkdirAll(basePath, 0755)
 	if err == nil {
-		err = defsSections(basePath, w).dump()
+		err = defsSections(basePath, w).Dump()
 	}
 	return err
 }
@@ -274,7 +224,7 @@ func (w *World) SaveDefinitionsToFiles(basePath string) error {
 // - the fights currently running on the map.
 // Counter-part of SaveLiveToFiles()
 func (w *World) LoadLiveFromFiles(basePath string) error {
-	return liveSections(basePath, w).load()
+	return liveSections(basePath, w).Load()
 }
 
 // Restore a state for the World, from a set of JSON objects, where each file/object
@@ -286,5 +236,5 @@ func (w *World) LoadLiveFromFiles(basePath string) error {
 // - the general configuration of the World.
 // Counter-part of SaveDefinitionsToFiles()
 func (w *World) LoadDefinitionsFromFiles(basePath string) error {
-	return defsSections(basePath, w).load()
+	return defsSections(basePath, w).Load()
 }

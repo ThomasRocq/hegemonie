@@ -10,4 +10,5 @@ const (
 	DefaultEndpointRegion = "127.0.0.1:8081"
 	DefaultEndpointAuth   = "127.0.0.1:8082"
 	DefaultEndpointEvent  = "127.0.0.1:8083"
+	DefaultEndpointMap    = "127.0.0.1:8084"
 )

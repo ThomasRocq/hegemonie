@@ -3,16 +3,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package region
+package mapgraph
 
 import (
+	"github.com/jfsmig/hegemonie/pkg/region/model"
 	"os"
 	"testing"
 	"time"
 )
 
 func TestMapInit(t *testing.T) {
-	var m Map
+	var m region.Map
 	m.Init()
 
 	if m.CellHas(1) {
@@ -35,7 +36,7 @@ func TestMapInit(t *testing.T) {
 }
 
 func TestMapEinval(t *testing.T) {
-	var m Map
+	var m region.Map
 	m.Init()
 
 	// Test that identical, zero or inexistant locations return an error
@@ -50,7 +51,7 @@ func TestMapEinval(t *testing.T) {
 
 func TestMapMultiConnect(t *testing.T) {
 	var err error
-	var m Map
+	var m region.Map
 	m.Init()
 	l0 := m.CellCreate()
 	l1 := m.CellCreate()
@@ -75,7 +76,7 @@ func TestMapMultiConnect(t *testing.T) {
 }
 
 func TestMapPathOneWay(t *testing.T) {
-	var m Map
+	var m region.Map
 	m.Init()
 
 	l0 := m.CellCreate()
@@ -114,7 +115,7 @@ func TestMapPathOneWay(t *testing.T) {
 }
 
 func TestMapPathTwoWay(t *testing.T) {
-	var m Map
+	var m region.Map
 	m.Init()
 
 	biconnect := func(l0, l1 uint64) {
@@ -177,7 +178,7 @@ func (g *grid) set(i, j int, v uint64) {
 }
 
 func TestMapGrid(t *testing.T) {
-	var m Map
+	var m region.Map
 	m.Init()
 
 	x := 10

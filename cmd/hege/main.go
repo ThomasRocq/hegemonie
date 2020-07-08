@@ -9,6 +9,7 @@ import (
 	"errors"
 	hegemonie_auth_client "github.com/jfsmig/hegemonie/pkg/auth/client"
 	hegemonie_event_client "github.com/jfsmig/hegemonie/pkg/event/client"
+	hegemonie_map_client "github.com/jfsmig/hegemonie/pkg/map/client"
 	"github.com/jfsmig/hegemonie/pkg/region/client"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/spf13/cobra"
@@ -19,6 +20,10 @@ func main() {
 	regCmd := hegemonie_region_client.Command()
 	regCmd.Use = "region"
 	regCmd.Aliases = []string{"reg"}
+
+	mapCmd := hegemonie_map_client.Command()
+	mapCmd.Use = "map"
+	mapCmd.Aliases = []string{"map"}
 
 	aaaCmd := hegemonie_auth_client.Command()
 	aaaCmd.Use = "auth"
@@ -36,7 +41,7 @@ func main() {
 			return errors.New("Missing subcommand")
 		},
 	}
-	rootCmd.AddCommand(aaaCmd, regCmd, evtCmd)
+	rootCmd.AddCommand(aaaCmd, regCmd, evtCmd, mapCmd)
 	utils.PatchCommandLogs(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {

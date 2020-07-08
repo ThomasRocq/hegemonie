@@ -49,20 +49,26 @@ func (w *World) CityGet(id uint64) *City {
 	return w.Live.Cities.Get(id)
 }
 
+func (w *World) CityGetAt(loc uint64) *City {
+	// TODO(jfs): Should we check the validity of the location?
+	for _, c := range w.Live.Cities {
+		if c.Cell == loc {
+			return c
+		}
+	}
+	return nil
+}
+
 func (w *World) CityCheck(id uint64) bool {
 	return w.CityGet(id) != nil
 }
 
 func (w *World) CityCreateModel(loc uint64, model *City) (*City, error) {
-	cell := w.Places.CellGet(loc)
-	if cell == nil || cell.City != 0 {
-		return nil, errors.New("Location already occupied")
-	}
-
+	// TODO(jfs): Should we check the validity of the location?
 	id := w.getNextID()
 	city := CopyCity(model)
 	city.ID = id
-	cell.City = id
+	city.Cell = loc
 	w.Live.Cities.Add(city)
 	return city, nil
 }

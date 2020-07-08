@@ -10,7 +10,7 @@ import (
 	"fmt"
 	grpc_health_v1 "github.com/jfsmig/hegemonie/pkg/healthcheck"
 	"github.com/jfsmig/hegemonie/pkg/region/model"
-	proto "github.com/jfsmig/hegemonie/pkg/region/proto"
+	rproto "github.com/jfsmig/hegemonie/pkg/region/proto"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -88,8 +88,6 @@ func (cfg *regionConfig) execute() error {
 		return fmt.Errorf("Inconsistent World from [%s] and [%s]: %v", cfg.pathDefs, cfg.pathLive, err)
 	}
 
-	w.Places.Rehash()
-
 	err = w.Check()
 	if err != nil {
 		return fmt.Errorf("Inconsistent World: %v", err)
@@ -109,11 +107,10 @@ func (cfg *regionConfig) execute() error {
 	w.SetNotifier(&EventStore{cnx: cnxEvent})
 
 	srv := grpc.NewServer(utils.ServerUnaryInterceptorZerolog())
-	proto.RegisterMapServer(srv, &srvMap{cfg: cfg, w: &w})
-	proto.RegisterCityServer(srv, &srvCity{cfg: cfg, w: &w})
-	proto.RegisterDefinitionsServer(srv, &srvDefinitions{cfg: cfg, w: &w})
-	proto.RegisterAdminServer(srv, &srvAdmin{cfg: cfg, w: &w})
-	proto.RegisterArmyServer(srv, &srvArmy{cfg: cfg, w: &w})
+	rproto.RegisterCityServer(srv, &srvCity{cfg: cfg, w: &w})
+	rproto.RegisterDefinitionsServer(srv, &srvDefinitions{cfg: cfg, w: &w})
+	rproto.RegisterAdminServer(srv, &srvAdmin{cfg: cfg, w: &w})
+	rproto.RegisterArmyServer(srv, &srvArmy{cfg: cfg, w: &w})
 	grpc_health_v1.RegisterHealthServer(srv, &srvHealth{w: &w})
 
 	if err := srv.Serve(lis); err != nil {

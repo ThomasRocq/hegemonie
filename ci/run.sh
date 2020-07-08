@@ -124,6 +124,7 @@ consul_service_http hege,web,1 8080 web
 consul_service_grpc hege,reg,1 8081 reg
 consul_service_grpc hege,aaa,1 8082 aaa
 consul_service_grpc hege,evt,1 8083 evt
+consul_service_grpc hege,map,1 8084 evt
 
 #consul agent \
 #  -server -bootstrap -dev -ui \
@@ -144,6 +145,12 @@ heged evt \
   --endpoint $ip:8083 \
   &
 
+heged map \
+  --id hege,map,1 \
+  --base "${BASE}/map" \
+  --endpoint $ip:8084 \
+  &
+
 heged region -v \
   --id hege,reg,1 \
   --defs "${BASE}/definitions" \
@@ -162,6 +169,7 @@ heged web \
   --region $ip:8081 \
   --auth $ip:8082 \
   --event $ip:8083 \
+  --map $ip:8084 \
   &
 
 trap finish SIGTERM SIGINT

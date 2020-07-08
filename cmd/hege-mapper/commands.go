@@ -9,10 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+
 	auth "github.com/jfsmig/hegemonie/pkg/auth/model"
+	"github.com/jfsmig/hegemonie/pkg/map/model"
 	region "github.com/jfsmig/hegemonie/pkg/region/model"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 func CommandNormalize() *cobra.Command {
@@ -184,6 +186,98 @@ func CommandSvg() *cobra.Command {
 	return cmd
 }
 
+func initDbAuthentication(path string) error {
+	var aaa auth.Db
+	aaa.Init()
+	aaa.ReHash()
+
+	u, err := aaa.CreateUser("admin@hegemonie.be")
+	if err != nil {
+		return err
+	}
+	u.Rename("Super Admin").SetRawPassword(":plop").Promote()
+
+	_, err = aaa.CreateCharacter(u.ID, "Waku", "Calaquyr")
+	if err != nil {
+		return err
+	}
+
+	var f *os.File
+	f, err = os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", " ")
+	return encoder.Encode(aaa.UsersByID)
+}
+
+func loadMap(pathIn string) (mapgraph.Map, region.World, error) {
+	var raw MapRaw
+	var m Map
+	var w region.World
+	var finalMap mapgraph.Map
+
+	decoder := json.NewDecoder(os.Stdin)
+	err := decoder.Decode(&raw)
+	if err != nil {
+		return finalMap, w, err
+	}
+
+	m, err = raw.Finalize()
+	if err != nil {
+		return finalMap, w, err
+	}
+
+	w.Init()
+	finalMap.Init()
+
+	// Load the configuration, because we need models
+	err = w.LoadDefinitionsFromFiles(pathIn)
+	if err != nil {
+		return finalMap, w, err
+	}
+
+	// Fill the world with cities and map cells
+	site2cell := make(map[*Site]*mapgraph.MapVertex)
+	for site := range m.SortedSites() {
+		cell := finalMap.CellCreate()
+		cell.X = uint64(site.raw.X)
+		cell.Y = uint64(site.raw.Y)
+		if site.raw.City {
+			city, err := w.CityCreateRandom(cell.ID)
+			if err != nil {
+				return finalMap, w, err
+			}
+			city.Name = site.raw.ID
+			city.Cell = cell.ID
+			cell.City = city.ID
+		}
+		site2cell[site] = cell
+	}
+	for road := range m.UniqueRoads() {
+		src := site2cell[road.Src]
+		dst := site2cell[road.Dst]
+		if err = finalMap.RoadCreate(src.ID, dst.ID, true); err != nil {
+			return finalMap, w, err
+		}
+		if err = finalMap.RoadCreate(dst.ID, src.ID, true); err != nil {
+			return finalMap, w, err
+		}
+	}
+
+	if err = w.PostLoad(); err != nil {
+		return finalMap, w, err
+	}
+	if err = w.Check(); err != nil {
+		return finalMap, w, err
+	}
+
+	return finalMap, w, nil
+}
+
 func CommandExport() *cobra.Command {
 	var config string
 
@@ -203,120 +297,27 @@ func CommandExport() *cobra.Command {
 				return errors.New("")
 			}
 
-			var aaa auth.Db
-			var u *auth.User
-			aaa.Init()
-			aaa.ReHash()
-			u, err = aaa.CreateUser("admin@hegemonie.be")
-			if err != nil {
-				return err
-			}
-			u.Rename("Super Admin").SetRawPassword(":plop").Promote()
-			_, err = aaa.CreateCharacter(u.ID, "Waku", "Calaquyr")
+			finalMap, world, err := loadMap(config)
+
+			err = finalMap.SaveToFiles(dirOut)
 			if err != nil {
 				return err
 			}
 
-			var raw MapRaw
-			decoder := json.NewDecoder(os.Stdin)
-			err = decoder.Decode(&raw)
+			err = world.SaveLiveToFiles(dirOut + "/live")
 			if err != nil {
 				return err
 			}
 
-			var m Map
-			m, err = raw.Finalize()
-			if err != nil {
-				return err
-			}
-
-			w := region.World{}
-			w.Init()
-
-			// Load the configuration, because we need models
-			w.LoadDefinitionsFromFiles(config)
-
-			// Fill the world with cities and map cells
-			site2cell := make(map[*Site]*region.MapVertex)
-			for site := range m.SortedSites() {
-				cell := w.Places.CellCreate()
-				cell.X = uint64(site.raw.X)
-				cell.Y = uint64(site.raw.Y)
-				if site.raw.City {
-					city, err := w.CityCreateRandom(cell.ID)
-					if err != nil {
-						return err
-					}
-					city.Name = site.raw.ID
-					city.Cell = cell.ID
-					cell.City = city.ID
-				}
-				site2cell[site] = cell
-			}
-			for road := range m.UniqueRoads() {
-				src := site2cell[road.Src]
-				dst := site2cell[road.Dst]
-				if err = w.Places.RoadCreate(src.ID, dst.ID, true); err != nil {
-					return err
-				}
-				if err = w.Places.RoadCreate(dst.ID, src.ID, true); err != nil {
-					return err
-				}
-			}
-
-			if err = w.PostLoad(); err != nil {
-				return err
-			}
-			if err = w.Check(); err != nil {
-				return err
-			}
-
-			// Patch the resource multipliers
-			for _, x := range w.Definitions.Buildings {
-				x.Prod = region.ResourceModifierNoop()
-				x.Stock = region.ResourceModifierNoop()
-			}
-			for _, x := range w.Definitions.Knowledges {
-				x.Prod = region.ResourceModifierNoop()
-				x.Stock = region.ResourceModifierNoop()
-			}
-
-			// Populate the cities with a set of minimal troops / units
-			for _, pCity := range w.Live.Cities {
-				pCity.Owner = u.Characters[0].ID
-				// Create one Army per City
-				pCity.UnitCreate(&w, w.Definitions.Units[0]).Finish()
-				pArmy, _ := pCity.CreateArmyDefence(&w)
-				if pArmy == nil {
-					panic("bug")
-				}
-				// Create one finished Unit per City
-				pCity.UnitCreate(&w, w.Definitions.Units[0]).Finish()
-				// Create one pending Unit per City
-				pCity.UnitCreate(&w, w.Definitions.Units[0])
-			}
-
-			// Dump the LIVE base of the world concerned by the current script
-			err = w.SaveLiveToFiles(dirOut + "/live")
-			if err != nil {
-				return err
-			}
-
-			// Dump the configuration
-			err = w.SaveDefinitionsToFiles(dirOut + "/definitions")
+			err = world.SaveDefinitionsToFiles(dirOut + "/definitions")
 			if err != nil {
 				return err
 			}
 
 			// Dump the authentication base
-			f, err := os.Create(dirOut + "/auth.json")
 			if err != nil {
-				return err
+				err = initDbAuthentication(dirOut + "/auth.json")
 			}
-			encoder := json.NewEncoder(f)
-			encoder.SetIndent("", " ")
-			err = encoder.Encode(aaa.UsersByID)
-			_ = f.Close()
 
 			return err
 		},
