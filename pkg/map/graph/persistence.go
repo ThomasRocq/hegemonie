@@ -15,11 +15,11 @@ func mapSections(p string, m *Map) utils.PersistencyMapping {
 		panic("Invalid path")
 	}
 	return []utils.CfgSection{
-		{p + "/map.json", &m},
+		{p, &m},
 	}
 }
 
-func (m *Map) SaveToFiles(path string) error {
+func (m *Map) SaveToFile(path string) error {
 	err := os.MkdirAll(path, 0755)
 	if err == nil {
 		err = mapSections(path, m).Dump()
@@ -27,6 +27,6 @@ func (m *Map) SaveToFiles(path string) error {
 	return err
 }
 
-func (m *Map) LoadFromFiles(path string) error {
+func (m *Map) LoadFromFile(path string) error {
 	return mapSections(path, m).Load()
 }

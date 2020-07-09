@@ -128,7 +128,7 @@ func CommandExport() *cobra.Command {
 
 			finalMap, world, err := loadMap(config)
 
-			err = finalMap.SaveToFiles(dirOut + "/map")
+			err = finalMap.SaveToFile(dirOut + "/map")
 			if err != nil {
 				return err
 			}

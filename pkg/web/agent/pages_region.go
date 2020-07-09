@@ -13,9 +13,9 @@ import (
 )
 
 type rawVertex struct {
-	ID   uint64 `json:"id"`
-	X    uint64 `json:"x"`
-	Y    uint64 `json:"y"`
+	ID uint64 `json:"id"`
+	X  uint64 `json:"x"`
+	Y  uint64 `json:"y"`
 }
 
 type rawEdge struct {

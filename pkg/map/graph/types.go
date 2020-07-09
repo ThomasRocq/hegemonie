@@ -30,8 +30,12 @@ type Vertex struct {
 // A Map is a directed graph destined to be used as a transport network,
 // organised as an adjacency list.
 type Map struct {
+	// The unique name of the map
+	ID string `json:"id"`
+
 	Cells SetOfVertices `json:"cells"`
-	Roads SetOfEdges    `json:"roads"`
+
+	Roads SetOfEdges `json:"roads"`
 
 	nextID uint64
 	steps  map[vector]uint64
@@ -39,4 +43,16 @@ type Map struct {
 
 type SetOfEdges []*Edge
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID mapgraph ./map_auto.go *MapVertex SetOfVertices
+type Repository interface {
+	RLock()
+	RUnlock()
+
+	WLock()
+	WUnlock()
+
+	GetMap(ID string) (*Map, error)
+	ListMaps(marker string, max uint32) ([]*Map, error)
+	Register(m *Map)
+}
+
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID mapgraph ./map_auto.go *Vertex SetOfVertices

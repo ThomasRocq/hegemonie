@@ -49,7 +49,7 @@ func (s {{.SetName}}) Check() error {
 	if !sort.IsSorted(s) {
 		return errors.New("Unsorted")
 	}
-	var lastId uint64
+	var lastId {{.AccessorType}}
 	for _, a := range s {
 		if lastId == a{{.Accessor}} {
 			return errors.New("Dupplicate ID")
@@ -59,7 +59,7 @@ func (s {{.SetName}}) Check() error {
 	return nil
 }
 
-func (s {{.SetName}}) Slice(marker uint64, max uint32) []{{.TypeName}} {
+func (s {{.SetName}}) Slice(marker {{.AccessorType}}, max uint32) []{{.TypeName}} {
 	if max == 0 {
 		max = 1000
 	} else if max > 100000 {
@@ -78,7 +78,7 @@ func (s {{.SetName}}) Slice(marker uint64, max uint32) []{{.TypeName}} {
 	return s[start : uint32(start)+remaining]
 }
 
-func (s {{.SetName}}) getIndex(id uint64) int {
+func (s {{.SetName}}) getIndex(id {{.AccessorType}}) int {
 	i := sort.Search(len(s), func(i int) bool {
 		return s[i]{{.Accessor}} >= id
 	})
@@ -88,7 +88,7 @@ func (s {{.SetName}}) getIndex(id uint64) int {
 	return -1
 }
 
-func (s {{.SetName}}) Get(id uint64) {{.TypeName}} {
+func (s {{.SetName}}) Get(id {{.AccessorType}}) {{.TypeName}} {
 	var out {{.TypeName}}
 	idx := s.getIndex(id)
 	if idx >= 0 {
@@ -97,7 +97,7 @@ func (s {{.SetName}}) Get(id uint64) {{.TypeName}} {
 	return out
 }
 
-func (s {{.SetName}}) Has(id uint64) bool {
+func (s {{.SetName}}) Has(id {{.AccessorType}}) bool {
 	return s.getIndex(id) >= 0
 }
 
@@ -126,10 +126,12 @@ func (s *{{.SetName}}) Remove(a {{.TypeName}}) {
 type ArrayInstance struct {
 	TypeName string
 	SetName  string
-	Accessor string
 	Package  string
 	Path     string
 	Date     string
+
+	Accessor     string
+	AccessorType string
 }
 
 func main() {
@@ -137,7 +139,10 @@ func main() {
 	var fout *os.File
 	var instance ArrayInstance
 
-	flag.StringVar(&instance.Accessor, "acc", "", "Accessor")
+	flag.StringVar(&instance.Accessor,
+		"acc", "", "Accessor")
+	flag.StringVar(&instance.AccessorType,
+		"acctype", "uint64", "Golang type of the Accessor")
 	flag.Parse()
 
 	instance.Package = flag.Arg(0)

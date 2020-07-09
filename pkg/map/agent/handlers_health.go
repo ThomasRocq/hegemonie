@@ -3,7 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package hegemonie_map_agent
+package mapagent
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 type srvHealth struct {
-	w *mapgraph.Map
+	repo mapgraph.Repository
 }
 
 func (s *srvHealth) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {

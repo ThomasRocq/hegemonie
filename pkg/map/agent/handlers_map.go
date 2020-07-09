@@ -3,7 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package hegemonie_map_agent
+package mapagent
 
 import (
 	"context"
@@ -12,44 +12,55 @@ import (
 )
 
 type srvMap struct {
-	cfg *regionConfig
-	w   *mapgraph.Map
+	config *regionConfig
+	repo   mapgraph.Repository
 }
 
 func (s *srvMap) Vertices(ctx context.Context, req *proto.ListVerticesReq) (*proto.ListOfVertices, error) {
-	// FIXME(jfs): Need for a lock
-	//s.w.RLock()
-	//defer s.w.RUnlock()
+	s.repo.RLock()
+	defer s.repo.RUnlock()
+
+	m, err := s.repo.GetMap(req.MapName)
+	if err != nil {
+		return nil, err
+	}
 
 	rep := &proto.ListOfVertices{}
-	for _, x := range s.w.Cells.Slice(req.Marker, req.Max) {
+	for _, x := range m.Cells.Slice(req.Marker, req.Max) {
 		rep.Items = append(rep.Items, &proto.Vertex{Id: x.ID, X: x.X, Y: x.Y})
 	}
 	return rep, nil
 }
 
 func (s *srvMap) Edges(ctx context.Context, req *proto.ListEdgesReq) (*proto.ListOfEdges, error) {
-	// FIXME(jfs): Need for a lock
-	//s.w.RLock()
-	//defer s.w.RUnlock()
+	s.repo.RLock()
+	defer s.repo.RUnlock()
+
+	m, err := s.repo.GetMap(req.MapName)
+	if err != nil {
+		return nil, err
+	}
 
 	rep := &proto.ListOfEdges{}
-	for _, x := range s.w.Roads.Slice(req.MarkerSrc, req.MarkerDst, req.Max) {
+	for _, x := range m.Roads.Slice(req.MarkerSrc, req.MarkerDst, req.Max) {
 		rep.Items = append(rep.Items, &proto.Edge{Src: x.S, Dst: x.D})
 	}
 	return rep, nil
 }
 
 func (s *srvMap) GetPath(ctx context.Context, req *proto.PathRequest) (*proto.PathReply, error) {
-	// FIXME(jfs): Need for a lock
-	//s.w.RLock()
-	//defer s.w.RUnlock()
+	s.repo.RLock()
+	defer s.repo.RUnlock()
 
-	var err error
+	m, err := s.repo.GetMap(req.MapName)
+	if err != nil {
+		return nil, err
+	}
+
 	rep := &proto.PathReply{}
 	p := req.Src
 	for {
-		p, err = s.w.PathNextStep(p, req.Dst)
+		p, err = m.PathNextStep(p, req.Dst)
 		if err != nil {
 			return nil, err
 		}

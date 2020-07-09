@@ -3,7 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package hegemonie_map_client
+package mapclient
 
 import (
 	"context"
@@ -19,33 +19,36 @@ import (
 )
 
 func getPath(args []string, cfg *eventConfig, max uint32) ([]uint64, error) {
-	var src, dst uint64
 	var err error
 	var out []uint64
+	var cnx *grpc.ClientConn
+	var req proto.PathRequest
+	var rep *proto.PathReply
 
-	if len(args) != 2 {
-		return out, errors.New("2 arguments expected: SRC DST")
+	if len(args) != 3 {
+		return out, errors.New("2 arguments expected: MAP SRC DST")
 	}
-	src, err = strconv.ParseUint(args[0], 10, 64)
+
+	req.MapName = args[0]
+	req.Src, err = strconv.ParseUint(args[1], 10, 64)
 	if err != nil {
 		return out, err
 	}
-	dst, err = strconv.ParseUint(args[1], 10, 64)
+	req.Dst, err = strconv.ParseUint(args[2], 10, 64)
 	if err != nil {
 		return out, err
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), time.Second)
 
-	cnx, err := grpc.DialContext(ctx, cfg.endpoint, grpc.WithInsecure(), grpc.WithBlock())
+	cnx, err = grpc.DialContext(ctx, cfg.endpoint, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return out, err
 	}
 	defer cnx.Close()
 	client := proto.NewMapClient(cnx)
 
-	req := proto.PathRequest{Src: src, Dst: dst, Max: max}
-	rep, err := client.GetPath(ctx, &req)
+	rep, err = client.GetPath(ctx, &req)
 	if err != nil {
 		return out, err
 	}

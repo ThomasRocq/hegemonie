@@ -3,7 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package hegemonie_map_agent
+package mapagent
 
 import (
 	"errors"
@@ -18,8 +18,8 @@ import (
 )
 
 type regionConfig struct {
-	endpoint string
-	pathLive string
+	endpoint       string
+	pathRepository string
 }
 
 func Command() *cobra.Command {
@@ -30,54 +30,36 @@ func Command() *cobra.Command {
 		Aliases: []string{"srv", "service"},
 		Short:   "Region service",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cfg.execute()
+			if cfg.pathRepository == "" {
+				return errors.New("Missing path for live data")
+			}
+
+			repo := mapgraph.NewRepository()
+			if err := mapgraph.LoadDirectory(repo, cfg.pathRepository); err != nil {
+				return err
+			}
+
+			lis, err := net.Listen("tcp", cfg.endpoint)
+			if err != nil {
+				return fmt.Errorf("failed to listen: %v", err)
+			}
+
+			grpcServer := grpc.NewServer(utils.ServerUnaryInterceptorZerolog())
+			mproto.RegisterMapServer(grpcServer, &srvMap{config: &cfg, repo: repo})
+			grpc_health_v1.RegisterHealthServer(grpcServer, &srvHealth{repo: repo})
+
+			if err := grpcServer.Serve(lis); err != nil {
+				return fmt.Errorf("failed to serve: %v", err)
+			}
+
+			return nil
+
 		},
 	}
 	agent.Flags().StringVar(&cfg.endpoint,
 		"endpoint", utils.DefaultEndpointRegion, "IP:PORT endpoint for the TCP/IP server")
-	agent.Flags().StringVar(&cfg.pathLive,
-		"live", "", "Path to the file with the state of the region.")
+	agent.Flags().StringVar(&cfg.pathRepository,
+		"data", "", "Path to the file with the state of the region.")
 
 	return agent
-}
-
-func (cfg *regionConfig) execute() error {
-	var err error
-
-	w := mapgraph.Map{}
-	w.Init()
-
-	if cfg.pathLive == "" {
-		return errors.New("Missing path for live data")
-	}
-
-	err = w.LoadFromFiles(cfg.pathLive)
-	if err != nil {
-		return err
-	}
-
-	err = w.PostLoad()
-	if err != nil {
-		return fmt.Errorf("Inconsistent Map from [%s] and [%s]: %v", cfg.pathLive, cfg.pathLive, err)
-	}
-
-	err = w.Check()
-	if err != nil {
-		return fmt.Errorf("Inconsistent World: %v", err)
-	}
-
-	lis, err := net.Listen("tcp", cfg.endpoint)
-	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
-	}
-
-	srv := grpc.NewServer(utils.ServerUnaryInterceptorZerolog())
-	mproto.RegisterMapServer(srv, &srvMap{cfg: cfg, w: &w})
-	grpc_health_v1.RegisterHealthServer(srv, &srvHealth{w: &w})
-
-	if err := srv.Serve(lis); err != nil {
-		return fmt.Errorf("failed to serve: %v", err)
-	}
-
-	return nil
 }

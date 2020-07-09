@@ -8,7 +8,9 @@ GO=go
 PROTOC=protoc
 COV_OUT=coverage.txt
 
-AUTO=  pkg/region/model/world_auto.go
+AUTO=
+AUTO+= pkg/map/graph/map_auto.go
+AUTO+= pkg/region/model/world_auto.go
 AUTO+= pkg/map/proto/map.pb.go
 AUTO+= pkg/auth/proto/auth.pb.go
 AUTO+= pkg/event/proto/event.pb.go
@@ -23,6 +25,10 @@ all: prepare
 	$(GO) install $(BASE)/cmd/hege
 
 prepare: $(AUTO)
+
+pkg/map/graph/map_auto.go: pkg/map/graph/types.go cmd/gen-set/main.go
+	-rm $@
+	$(GO) generate github.com/jfsmig/hegemonie/pkg/map/graph
 
 pkg/region/model/world_auto.go: pkg/region/model/world_types.go cmd/gen-set/main.go
 	-rm $@

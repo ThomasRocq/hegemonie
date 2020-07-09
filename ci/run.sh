@@ -147,7 +147,7 @@ heged evt \
 
 heged map \
   --id hege,map,1 \
-  --base "${BASE}/map" \
+  --data "${BASE}/map" \
   --endpoint $ip:8084 \
   &
 

@@ -6,7 +6,6 @@
 package maputils
 
 import (
-	"log"
 	"math"
 	"math/rand"
 	"sort"
@@ -49,15 +48,6 @@ func (s *Site) DotName() string {
 
 func (r *Road) Raw() RoadRaw {
 	return RoadRaw{Src: r.Src.Raw.ID, Dst: r.Dst.Raw.ID}
-}
-
-func (m *Map) Debug() {
-	for _, s := range m.Sites {
-		log.Println(s.Raw)
-		for peer, _ := range s.Peers {
-			log.Println("  ->", peer.Raw)
-		}
-	}
 }
 
 func (m *Map) UniqueRoads() <-chan Road {
