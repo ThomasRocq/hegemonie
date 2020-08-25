@@ -38,7 +38,7 @@ func (s *srvCity) List(ctx context.Context, req *proto.CitiesByCharReq) (*proto.
 }
 
 func (s *srvCity) AllCities(ctx context.Context, req *proto.PaginatedQuery) (*proto.ListOfCities, error) {
-	return s.replyCities(ctx, func() []*region.City { return s.w.Live.Cities.Slice(req.Marker, req.Max) })
+	return s.replyCities(ctx, func() []*region.City { return s.w.Regions.Cities.Slice(req.Marker, req.Max) })
 }
 
 func (s *srvCity) Show(ctx context.Context, req *proto.CityId) (*proto.CityView, error) {

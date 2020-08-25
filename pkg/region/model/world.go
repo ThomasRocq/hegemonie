@@ -5,14 +5,6 @@
 
 package region
 
-import (
-	"errors"
-	"math/rand"
-	"sync/atomic"
-)
-
-var errCityExists = errors.New("City exists at that location")
-
 func (w *World) WLock() { w.rw.Lock() }
 
 func (w *World) WUnlock() { w.rw.Unlock() }
@@ -21,22 +13,22 @@ func (w *World) RLock() { w.rw.RLock() }
 
 func (w *World) RUnlock() { w.rw.RUnlock() }
 
-func (w *World) getNextID() uint64 {
-	return atomic.AddUint64(&w.nextID, 1)
-}
+func (w *World) CreateRegion(name, mapName string) (*Region, error) {
+	w.WLock()
+	defer w.WUnlock()
 
-func (w *World) Produce() {
-	for _, c := range w.Live.Cities {
-		c.Produce(w)
+	if w.Regions.Has(name) {
+		return nil, errRegionExists
 	}
-}
-
-func (w *World) Move() {
-	for _, c := range w.Live.Cities {
-		for _, a := range c.Armies {
-			a.Move(w)
-		}
+	r := &Region{
+		Name:    name,
+		MapName: mapName,
+		Cities:  make(SetOfCities, 0),
+		Fights:  make(SetOfFights, 0),
+		nextID:  1,
+		world:   w,
 	}
+	return r, nil
 }
 
 func (w *World) UnitTypeGet(id uint64) *UnitType {
@@ -45,64 +37,6 @@ func (w *World) UnitTypeGet(id uint64) *UnitType {
 
 func (w *World) UnitGetFrontier(owned []*Building) []*UnitType {
 	return w.Definitions.Units.Frontier(owned)
-}
-
-func (w *World) CityGet(id uint64) *City {
-	return w.Live.Cities.Get(id)
-}
-
-func (w *World) CityGetAt(loc uint64) *City {
-	return w.CityGet(loc)
-}
-
-func (w *World) CityCheck(id uint64) bool {
-	return w.CityGet(id) != nil
-}
-
-func (w *World) CityCreateModel(loc uint64, model *City) (*City, error) {
-	if w.Live.Cities.Has(loc) {
-		return nil, errCityExists
-	}
-	city := CopyCity(model)
-	city.ID = loc
-	w.Live.Cities.Add(city)
-	return city, nil
-}
-
-func (w *World) CityCreate(loc uint64) (*City, error) {
-	return w.CityCreateModel(loc, nil)
-}
-
-func (w *World) CityCreateRandom(loc uint64) (*City, error) {
-	if len(w.Config.CityPatterns) > 0 {
-		i := rand.Intn(len(w.Config.CityPatterns))
-		model := w.Config.CityPatterns[i]
-		return w.CityCreateModel(loc, &model)
-	}
-	return w.CityCreateModel(loc, nil)
-}
-
-func (w *World) CityGetAndCheck(charID, cityID uint64) (*City, error) {
-	// Fetch + sanity checks about the city
-	pCity := w.CityGet(cityID)
-	if pCity == nil {
-		return nil, errors.New("Not Found")
-	}
-	if pCity.Deputy != charID && pCity.Owner != charID {
-		return nil, errors.New("Forbidden")
-	}
-
-	return pCity, nil
-}
-
-func (w *World) Cities(idChar uint64) []*City {
-	rep := make([]*City, 0)
-	for _, c := range w.Live.Cities {
-		if c.Owner == idChar || c.Deputy == idChar {
-			rep = append(rep, c)
-		}
-	}
-	return rep
 }
 
 func (w *World) BuildingTypeGet(id uint64) *BuildingType {

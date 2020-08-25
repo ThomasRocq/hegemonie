@@ -19,11 +19,13 @@ func (a *Army) PopCommand() {
 	a.Targets = a.Targets[1:]
 }
 
-func (a *Army) ApplyAgressivity(w *World) {
+func (a *Army) ApplyAgressivity(w *Region) {
 	// FIXME(jfs): NYI
 }
 
-func (a *Army) Move(w *World) {
+func (a *Army) Move(r *Region) {
+	w := r.world
+
 	if a.Fight != 0 {
 		return
 	}
@@ -35,7 +37,7 @@ func (a *Army) Move(w *World) {
 		src := a.Cell
 		dst := cmd.Cell
 
-		pLocalCity := w.CityGetAt(a.Cell)
+		pLocalCity := r.CityGetAt(a.Cell)
 
 		nxt, err := w.mapView.Step(src, dst)
 		if err != nil || nxt == 0 {
@@ -57,23 +59,23 @@ func (a *Army) Move(w *World) {
 			case CmdMove:
 				// Just a stop on the way
 			case CmdCityAttack:
-				a.JoinCityAttack(w, pLocalCity)
+				a.JoinCityAttack(r, pLocalCity)
 			case CmdCityDefend:
-				if a.JoinCityDefence(w, pLocalCity) {
+				if a.JoinCityDefence(r, pLocalCity) {
 					preventPopping = true
 				}
 			case CmdCityDisband:
-				a.Disband(w, pLocalCity, true)
+				a.Disband(r, pLocalCity, true)
 			}
 			if !preventPopping {
 				a.PopCommand()
 			}
 		}
 	}
-	a.ApplyAgressivity(w)
+	a.ApplyAgressivity(r)
 }
 
-func (a *Army) Deposit(w *World, pCity *City) {
+func (a *Army) Deposit(w *Region, pCity *City) {
 	if pCity == nil {
 		panic("Impossible action: nil city")
 	}
@@ -86,7 +88,7 @@ func (a *Army) Deposit(w *World, pCity *City) {
 	// FIXME(jfs): Notify a.City
 }
 
-func (a *Army) Massacre(w *World, pCity *City) {
+func (a *Army) Massacre(w *Region, pCity *City) {
 	if pCity == nil {
 		panic("Impossible action: nil city")
 	}
@@ -98,7 +100,7 @@ func (a *Army) Massacre(w *World, pCity *City) {
 	// FIXME(jfs): Notify a.City
 }
 
-func (a *Army) Disband(w *World, pCity *City, shouldNotify bool) {
+func (a *Army) Disband(w *Region, pCity *City, shouldNotify bool) {
 	if pCity == nil {
 		panic("Impossible action: nil city")
 	}
@@ -118,7 +120,7 @@ func (a *Army) Disband(w *World, pCity *City, shouldNotify bool) {
 	}
 }
 
-func (a *Army) BreakBuilding(w *World, pCity *City) {
+func (a *Army) BreakBuilding(w *Region, pCity *City) {
 	if pCity == nil {
 		panic("Impossible action: nil city")
 	}
@@ -138,7 +140,7 @@ func (a *Army) Conquer(w *World, pCity *City) {
 	a.City.ConquerCity(w, pCity)
 }
 
-func (a *Army) JoinCityDefence(w *World, pCity *City) bool {
+func (a *Army) JoinCityDefence(w *Region, pCity *City) bool {
 	if pCity.Assault == nil {
 		return false
 	}
@@ -155,7 +157,7 @@ func (a *Army) JoinCityDefence(w *World, pCity *City) bool {
 	return true
 }
 
-func (a *Army) JoinCityAttack(w *World, pCity *City) {
+func (a *Army) JoinCityAttack(w *Region, pCity *City) {
 	if pCity.Assault == nil {
 		pCity.Assault = &Fight{
 			ID:      w.getNextID(),
@@ -179,22 +181,22 @@ func (a *Army) JoinCityAttack(w *World, pCity *City) {
 }
 
 // Leave the Fight as a loser
-func (a *Army) Flea(w *World) error {
+func (a *Army) Flea(w *Region) error {
 	return errors.New("Flea NYI")
 }
 
 // Change the side in the Fight.
 // If the Army was defending, it becomes an attacker, if it was an attacker
 // it becomes a defender.
-func (a *Army) Flip(w *World) error {
-	return errors.New("Flip NYI")
+func (a *Army) Flip(w *Region) error {
+	return errNotImplemented
 }
 
-func (a *Army) Cancel(w *World) error {
-	return errors.New("Cancel NYI")
+func (a *Army) Cancel(w *Region) error {
+	return errNotImplemented
 }
 
-func (a *Army) DeferAttack(w *World, loc uint64, args ActionArgAssault) error {
+func (a *Army) DeferAttack(w *Region, loc uint64, args ActionArgAssault) error {
 	var sb strings.Builder
 	err := json.NewEncoder(&sb).Encode(&args)
 	if err != nil {
@@ -204,17 +206,17 @@ func (a *Army) DeferAttack(w *World, loc uint64, args ActionArgAssault) error {
 	return nil
 }
 
-func (a *Army) DeferDefend(w *World, loc uint64) error {
+func (a *Army) DeferDefend(w *Region, loc uint64) error {
 	a.Targets = append(a.Targets, Command{Action: CmdCityDefend, Cell: loc})
 	return nil
 }
 
-func (a *Army) DeferDisband(w *World, loc uint64) error {
+func (a *Army) DeferDisband(w *Region, loc uint64) error {
 	a.Targets = append(a.Targets, Command{Action: CmdCityDisband, Cell: loc})
 	return nil
 }
 
-func (a *Army) DeferMove(w *World, loc uint64, args ActionArgMove) error {
+func (a *Army) DeferMove(w *Region, loc uint64, args ActionArgMove) error {
 	var sb strings.Builder
 	err := json.NewEncoder(&sb).Encode(&args)
 	if err != nil {
@@ -224,7 +226,7 @@ func (a *Army) DeferMove(w *World, loc uint64, args ActionArgMove) error {
 	return nil
 }
 
-func (a *Army) DeferWait(w *World, loc uint64) error {
+func (a *Army) DeferWait(w *Region, loc uint64) error {
 	a.Targets = append(a.Targets, Command{Action: CmdWait, Cell: loc})
 	return nil
 }

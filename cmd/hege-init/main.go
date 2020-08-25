@@ -8,7 +8,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	auth "github.com/jfsmig/hegemonie/pkg/auth/model"
+	"github.com/jfsmig/hegemonie/pkg/auth/backend"
 	mapgraph "github.com/jfsmig/hegemonie/pkg/map/graph"
 	maputils "github.com/jfsmig/hegemonie/pkg/map/utils"
 	region "github.com/jfsmig/hegemonie/pkg/region/model"
@@ -18,7 +18,7 @@ import (
 )
 
 func initDbAuthentication(path string) error {
-	var aaa auth.Db
+	var aaa backend_local.Db
 	aaa.Init()
 	aaa.ReHash()
 
@@ -66,7 +66,7 @@ func loadMap(pathIn string) (mapgraph.Map, region.World, error) {
 	graphMap.Init()
 
 	// Load the configuration, because we need models
-	err = world.LoadDefinitionsFromFiles(pathIn)
+	err = world.Sections(pathIn).Load()
 	if err != nil {
 		return graphMap, world, err
 	}

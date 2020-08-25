@@ -7,26 +7,13 @@ package mapgraph
 
 import (
 	"github.com/jfsmig/hegemonie/pkg/utils"
-	"os"
 )
 
-func mapSections(p string, m *Map) utils.PersistencyMapping {
+func (m *Map) Sections(p string) utils.PersistencyMapping {
 	if p == "" {
 		panic("Invalid path")
 	}
 	return []utils.CfgSection{
 		{p, &m},
 	}
-}
-
-func (m *Map) SaveToFile(path string) error {
-	err := os.MkdirAll(path, 0755)
-	if err == nil {
-		err = mapSections(path, m).Dump()
-	}
-	return err
-}
-
-func (m *Map) LoadFromFile(path string) error {
-	return mapSections(path, m).Load()
 }

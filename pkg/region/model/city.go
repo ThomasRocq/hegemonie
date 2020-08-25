@@ -10,11 +10,6 @@ import (
 	"fmt"
 )
 
-var (
-	ErrNoSuchUnit         = errors.New("No such Unit")
-	ErrNotEnoughResources = errors.New("Not enough resources")
-)
-
 func MakeCity() *City {
 	return &City{
 		ID:         0,
@@ -130,7 +125,7 @@ func (c *City) GetStock(w *World) *CityStock {
 	return p
 }
 
-func (c *City) CreateEmptyArmy(w *World) *Army {
+func (c *City) CreateEmptyArmy(w *Region) *Army {
 	aid := w.getNextID()
 	a := &Army{
 		ID:       aid,
@@ -162,12 +157,12 @@ func unitsFilterIdle(uv []*Unit) (out []*Unit) {
 }
 
 // Create an Army made of some Unit of the City
-func (c *City) CreateArmyFromUnit(w *World, units ...*Unit) (*Army, error) {
+func (c *City) CreateArmyFromUnit(w *Region, units ...*Unit) (*Army, error) {
 	return c.CreateArmyFromIds(w, unitsToIDs(unitsFilterIdle(units))...)
 }
 
 // Create an Army made of some Unit of the City
-func (c *City) CreateArmyFromIds(w *World, ids ...uint64) (*Army, error) {
+func (c *City) CreateArmyFromIds(w *Region, ids ...uint64) (*Army, error) {
 	a := c.CreateEmptyArmy(w)
 	err := c.TransferOwnUnit(a, ids...)
 	if err != nil { // Rollback
@@ -178,7 +173,7 @@ func (c *City) CreateArmyFromIds(w *World, ids ...uint64) (*Army, error) {
 }
 
 // Create an Army made of all the Units defending the City
-func (c *City) CreateArmyDefence(w *World) (*Army, error) {
+func (c *City) CreateArmyDefence(w *Region) (*Army, error) {
 	ids := unitsToIDs(unitsFilterIdle(c.Units))
 	if len(ids) <= 0 {
 		return nil, ErrNoSuchUnit
@@ -187,7 +182,7 @@ func (c *City) CreateArmyDefence(w *World) (*Army, error) {
 }
 
 // Create an Army carrying resources you own
-func (c *City) CreateTransport(w *World, r Resources) (*Army, error) {
+func (c *City) CreateTransport(w *Region, r Resources) (*Army, error) {
 	if !c.Stock.GreaterOrEqualTo(r) {
 		return nil, ErrNotEnoughResources
 	}
@@ -199,10 +194,10 @@ func (c *City) CreateTransport(w *World, r Resources) (*Army, error) {
 }
 
 // Play one round of local production and return the
-func (c *City) ProduceLocally(w *World, p *CityProduction) Resources {
+func (c *City) ProduceLocally(w *Region, p *CityProduction) Resources {
 	var prod Resources = p.Actual
 	if c.TicksMassacres > 0 {
-		mult := MultiplierUniform(w.Config.MassacreImpact)
+		mult := MultiplierUniform(w.world.Config.MassacreImpact)
 		for i := uint32(0); i < c.TicksMassacres; i++ {
 			prod.Multiply(mult)
 		}
@@ -211,11 +206,11 @@ func (c *City) ProduceLocally(w *World, p *CityProduction) Resources {
 	return prod
 }
 
-func (c *City) Produce(w *World) {
+func (c *City) Produce(w *Region) {
 	// Pre-compute the modified values of Stock and Production.
 	// We just reuse a functon that already does it (despite it does more)
-	prod0 := c.GetProduction(w)
-	stock := c.GetStock(w)
+	prod0 := c.GetProduction(w.world)
+	stock := c.GetStock(w.world)
 
 	// Make the local City generate resources (and recover the massacres)
 	prod := c.ProduceLocally(w, prod0)
@@ -235,7 +230,7 @@ func (c *City) Produce(w *World) {
 			// TODO(jfs): check for potential shortage
 			//  shortage := c.Tax.GreaterThan(tax)
 
-			if w.Config.InstantTransfers {
+			if w.world.Config.InstantTransfers {
 				c.pOverlord.Stock.Add(tax)
 			} else {
 				c.SendResourcesTo(w, c.pOverlord, tax)
@@ -252,7 +247,7 @@ func (c *City) Produce(w *World) {
 
 	for _, u := range c.Units {
 		if u.Ticks > 0 {
-			ut := w.UnitTypeGet(u.Type)
+			ut := w.world.UnitTypeGet(u.Type)
 			if c.Stock.GreaterOrEqualTo(ut.Cost) {
 				c.Stock.Remove(ut.Cost)
 				u.Ticks--
@@ -265,7 +260,7 @@ func (c *City) Produce(w *World) {
 
 	for _, b := range c.Buildings {
 		if b.Ticks > 0 {
-			bt := w.BuildingTypeGet(b.ID)
+			bt := w.world.BuildingTypeGet(b.ID)
 			if c.Stock.GreaterOrEqualTo(bt.Cost) {
 				c.Stock.Remove(bt.Cost)
 				b.Ticks--
@@ -278,7 +273,7 @@ func (c *City) Produce(w *World) {
 
 	for _, k := range c.Knowledges {
 		if k.Ticks > 0 {
-			bt := w.KnowledgeTypeGet(k.ID)
+			bt := w.world.KnowledgeTypeGet(k.ID)
 			if c.Stock.GreaterOrEqualTo(bt.Cost) {
 				c.Stock.Remove(bt.Cost)
 				k.Ticks--
@@ -349,7 +344,7 @@ func (c *City) ConquerCity(w *World, other *City) {
 	// FIXME(jfs): Notify 'other'
 }
 
-func (c *City) SendResourcesTo(w *World, overlord *City, amount Resources) error {
+func (c *City) SendResourcesTo(w *Region, overlord *City, amount Resources) error {
 	// FIXME(jfs): NYI
 	return errors.New("SendResourcesTo() not implemented")
 }
@@ -428,7 +423,7 @@ func (c *City) UnitAllowed(pType *UnitType) bool {
 
 // Create a Unit of the given UnitType.
 // No check is performed to verify the City has all the requirements.
-func (c *City) UnitCreate(w *World, pType *UnitType) *Unit {
+func (c *City) UnitCreate(w *Region, pType *UnitType) *Unit {
 	id := w.getNextID()
 	u := &Unit{ID: id, Type: pType.ID, Ticks: pType.Ticks, Health: pType.Health}
 	c.Units.Add(u)
@@ -437,8 +432,8 @@ func (c *City) UnitCreate(w *World, pType *UnitType) *Unit {
 
 // Start the training of a Unit of the given UnitType (id).
 // The whole chain of requirements will be checked.
-func (c *City) Train(w *World, typeID uint64) (uint64, error) {
-	pType := w.UnitTypeGet(typeID)
+func (c *City) Train(w *Region, typeID uint64) (uint64, error) {
+	pType := w.world.UnitTypeGet(typeID)
 	if pType == nil {
 		return 0, errors.New("Unit Type not found")
 	}
@@ -450,8 +445,8 @@ func (c *City) Train(w *World, typeID uint64) (uint64, error) {
 	return u.ID, nil
 }
 
-func (c *City) Study(w *World, typeID uint64) (uint64, error) {
-	kType := w.KnowledgeTypeGet(typeID)
+func (c *City) Study(w *Region, typeID uint64) (uint64, error) {
+	kType := w.world.KnowledgeTypeGet(typeID)
 	if kType == nil {
 		return 0, errors.New("Knowledge Type not found")
 	}
@@ -469,8 +464,8 @@ func (c *City) Study(w *World, typeID uint64) (uint64, error) {
 	return id, nil
 }
 
-func (c *City) Build(w *World, bID uint64) (uint64, error) {
-	bType := w.BuildingTypeGet(bID)
+func (c *City) Build(w *Region, bID uint64) (uint64, error) {
+	bType := w.world.BuildingTypeGet(bID)
 	if bType == nil {
 		return 0, errors.New("Building Type not found")
 	}

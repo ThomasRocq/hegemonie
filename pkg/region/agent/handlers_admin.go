@@ -40,10 +40,14 @@ func (s *srvAdmin) Save(ctx context.Context, req *proto.None) (*proto.None, erro
 	return &proto.None{}, s.wlockDo(func() error { return s.w.SaveLiveToFiles(s.cfg.pathSave) })
 }
 
+func (s *srvAdmin) CreateRegion(ctx context.Context, req *proto.RegionCreateReq) (*proto.None, error) {
+	return &proto.None{}, s.wlockDo(func() error { return s.w.CreateRegion(req.Name, req.MapName) })
+}
+
 func (s *srvAdmin) GetScores(ctx context.Context, req *proto.None) (*proto.ListOfCities, error) {
 	sb := &proto.ListOfCities{}
 	err := s.rlockDo(func() error {
-		for _, c := range s.w.Live.Cities {
+		for _, c := range s.w.Regions.Cities {
 			sb.Items = append(sb.Items, ShowCityPublic(s.w, c, true))
 		}
 		return nil

@@ -7,8 +7,23 @@ syntax = "proto3";
 
 package hegemonie.region.proto;
 
+service Admin {
+  //
+  rpc CreateRegion(RegionCreateReq) returns (None) {}
+
+  // Have all the Cities on the Region to produce their resources
+  rpc Produce(RegionId) returns (None) {}
+
+  // Make all the armies on the Region to move on step
+  rpc Move(RegionId) returns (None) {}
+
+  // Compute the scoreboard of the region.
+  // FIXME(jfs): the request is not paginated.
+  rpc GetScores(RegionId) returns (ListOfCities) {}
+}
+
 service City {
-  // Paginated wuery of the cities owned by the given character.
+  // Paginated query of the cities owned by the given character.
   // Only a summary of the cities are returned.
   rpc List (CitiesByCharReq) returns (ListOfCities) {}
 
@@ -21,15 +36,15 @@ service City {
   //            to be replied.
   rpc Show (CityId) returns (CityView) {}
 
-	// Start the study of a knowledge whose type is specified by its unique ID.
+  // Start the study of a knowledge whose type is specified by its unique ID.
   // If the conditions are not met, an error is returned.
   rpc Study (StudyReq) returns (None) {}
 
-	// Start the construction of a building whose type is specified by its unique ID.
+  // Start the construction of a building whose type is specified by its unique ID.
   // If the conditions are not met, an error is returned.
   rpc Build (BuildReq) returns (None) {}
 
-	// Start the training of a Unit whose type is specified by its unique ID.
+  // Start the training of a Unit whose type is specified by its unique ID.
   // If the conditions are not met, an error is returned.
   rpc Train (TrainReq) returns (None) {}
 
@@ -65,18 +80,6 @@ service Definitions {
   rpc ListKnowledges (PaginatedQuery) returns (ListOfKnowledgeTypes) {}
 }
 
-service Admin {
-  // Have all the Cities on the Region to produce their resources
-  rpc Produce(None) returns (None) {}
-
-  // Make all the armies on the Region to move on step
-  rpc Move(None) returns (None) {}
-
-  // Compute the scoreboard of the region.
-  // FIXME(jfs): the request is not paginated.
-  rpc GetScores(None) returns (ListOfCities) {}
-}
-
 service Army {
   // Return a detailed view of the given Army
   rpc Show (ArmyId) returns (ArmyView) {}
@@ -108,6 +111,15 @@ service Army {
 }
 
 message None {}
+
+message RegionId {
+  string region = 1;
+}
+
+message RegionCreateReq {
+  string name = 1;
+  string mapName = 2;
+}
 
 message NamedItem {
   uint64 id = 1;
@@ -202,8 +214,9 @@ message ArmyCommand {
 
 // Identifies a City and Character who is
 message CityId {
-  uint64 character = 1;
-  uint64 city = 2;
+  string region = 1;
+  uint64 character = 2;
+  uint64 city = 3;
 }
 
 message ResourcesAbs {
@@ -360,61 +373,56 @@ message CityView {
 }
 
 message StudyReq {
-  uint64 character = 1;
-  uint64 city = 2;
-  uint64 knowledgeType = 3;
+  CityId city = 1;
+  uint64 knowledgeType = 2;
 }
 
 message TrainReq {
-  uint64 character = 1;
-  uint64 city = 2;
-  uint64 unitType = 3;
+  CityId city = 1;
+  uint64 unitType = 2;
 }
 
 message BuildReq {
-  uint64 character = 1;
-  uint64 city = 2;
-  uint64 buildingType = 3;
+  CityId city = 1;
+  uint64 buildingType = 2;
 }
 
 message CreateTransportReq {
-  uint64 character = 1;
-  uint64 city = 2;
-  string name = 3;
-  uint64 target = 4;
-  ResourcesAbs stock = 5;
+  CityId city = 1;
+  string name = 2;
+  uint64 target = 3;
+  ResourcesAbs stock = 4;
 }
 
 message CreateArmyReq {
-  uint64 character = 1;
-  uint64 city = 2;
-  string name = 3;
-  repeated uint64 unit = 4;
+  CityId city = 1;
+  string name = 2;
+  repeated uint64 unit = 3;
 }
 
 message TransferUnitReq {
-  uint64 character = 1;
-  uint64 city = 2;
+  CityId city = 1;
   uint64 army = 3;
   repeated uint64 unit = 4;
 }
 
 message TransferResourcesReq {
-  uint64 character = 1;
-  uint64 city = 2;
+  CityId city = 1;
   uint64 army = 3;
   ResourcesAbs stock = 4;
 }
 
 message CitiesByCharReq {
-  uint64 character = 1;
-  uint64 marker = 2;
-  uint32 max = 3;
+  string region = 1;
+  uint64 character = 2;
+  uint64 marker = 3;
+  uint32 max = 4;
 }
 
 message PaginatedQuery {
-  uint64 marker = 1;
-  uint32 max = 2;
+  string region = 1;
+  uint64 marker = 2;
+  uint32 max = 3;
 }
 
 message ListOfUnitTypes {

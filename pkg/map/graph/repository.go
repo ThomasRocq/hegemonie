@@ -49,7 +49,7 @@ func LoadDirectory(repo Repository, path string) error {
 		// The filename without its extension is the name of the map
 		m.ID = fn[:len(fn)-5]
 
-		err = m.LoadFromFile(path)
+		err = m.Sections(path).Load()
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func LoadDirectory(repo Repository, path string) error {
 func SaveInDirectory(repo Repository, dataDir string) error {
 	for m := range ListAllMaps(repo) {
 		path := dataDir + "/" + m.ID + ".json"
-		err := m.SaveToFile(path)
+		err := m.Sections(path).Dump()
 		if err != nil {
 			return err
 		}
@@ -102,8 +102,6 @@ func ListAllMaps(repo Repository) <-chan *Map {
 }
 
 func (r *memRepository) GetMap(ID string) (*Map, error) {
-	r.RLock()
-	defer r.RUnlock()
 	m := r.maps.Get(ID)
 	if m == nil {
 		return nil, errNoSuchMap
@@ -112,14 +110,10 @@ func (r *memRepository) GetMap(ID string) (*Map, error) {
 }
 
 func (r *memRepository) ListMaps(marker string, max uint32) ([]*Map, error) {
-	r.RLock()
-	defer r.RUnlock()
 	return r.maps.Slice(marker, max), nil
 }
 
 func (r *memRepository) Register(m *Map) {
-	r.WLock()
-	defer r.WUnlock()
 	r.maps.Add(m)
 }
 
@@ -129,4 +123,4 @@ func (r *memRepository) RUnlock() { r.rw.RUnlock() }
 func (r *memRepository) WLock()   { r.rw.Lock() }
 func (r *memRepository) WUnlock() { r.rw.Unlock() }
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID --acctype string mapgraph ./map_auto.go *Map setOfMaps
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID --acctype string mapgraph ./map_auto.go *Map setOfMaps

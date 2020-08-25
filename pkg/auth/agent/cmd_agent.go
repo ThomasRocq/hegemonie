@@ -6,18 +6,15 @@
 package hegemonie_auth_agent
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jfsmig/hegemonie/pkg/auth/model"
+	"github.com/jfsmig/hegemonie/pkg/auth/backend"
 	proto "github.com/jfsmig/hegemonie/pkg/auth/proto"
 	grpc_health_v1 "github.com/jfsmig/hegemonie/pkg/healthcheck"
 	"github.com/jfsmig/hegemonie/pkg/utils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
-	"io"
 	"net"
-	"os"
 )
 
 type authConfig struct {
@@ -27,11 +24,11 @@ type authConfig struct {
 }
 
 type authService struct {
-	db  auth.Db
+	db  hegemonie_auth_backend.Backend
 	cfg *authConfig
 }
 
-func Command() *cobra.Command {
+func CommandAgent() *cobra.Command {
 	cfg := authConfig{}
 
 	agent := &cobra.Command{
@@ -58,34 +55,14 @@ func Command() *cobra.Command {
 }
 
 func (srv *authService) execute() error {
-	srv.db.Init()
-
 	if srv.cfg.pathLive == "" {
 		return errors.New("Missing: path to the live data directory")
 	}
 
-	var p string
 	var err error
-	var in io.ReadCloser
-
-	p = srv.cfg.pathLive + "/auth.json"
-	in, err = os.Open(p)
+	srv.db, err = hegemonie_auth_backend.Connect(srv.cfg.pathLive)
 	if err != nil {
-		return fmt.Errorf("Failed to open the DB from [%s]: %s", p, err.Error())
-	}
-
-	err = json.NewDecoder(in).Decode(&srv.db.UsersByID)
-	_ = in.Close()
-	if err != nil {
-		return fmt.Errorf("Failed to load the DB from [%s]: %s", p, err.Error())
-	}
-
-	if err := srv.postLoad(); err != nil {
-		return fmt.Errorf("Inconsistent DB in [%s]: %s", srv.cfg.pathLive, err.Error())
-	}
-
-	if err := srv.db.Check(); err != nil {
-		return fmt.Errorf("Inconsistent DB: %s", err.Error())
+		return err
 	}
 
 	var lis net.Listener
@@ -96,22 +73,5 @@ func (srv *authService) execute() error {
 	server := grpc.NewServer(utils.ServerUnaryInterceptorZerolog())
 	proto.RegisterAuthServer(server, srv)
 	grpc_health_v1.RegisterHealthServer(server, srv)
-	if err := server.Serve(lis); err != nil {
-		return fmt.Errorf("failed to serve: %v", err)
-	}
-
-	if srv.cfg.pathSave != "" {
-		if err = srv.save(); err != nil {
-			return fmt.Errorf("Failed to save the DB at exit: %s", err.Error())
-		}
-	}
-	return nil
-}
-
-func (srv *authService) postLoad() error {
-	return srv.db.ReHash()
-}
-
-func (srv *authService) save() error {
-	return errors.New("NYI")
+	return server.Serve(lis)
 }

@@ -7,110 +7,144 @@ package hegemonie_auth_agent
 
 import (
 	"context"
-	"github.com/jfsmig/hegemonie/pkg/auth/model"
+	"github.com/jfsmig/hegemonie/pkg/auth/backend"
 	proto "github.com/jfsmig/hegemonie/pkg/auth/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func userView(u *auth.User) *proto.UserView {
+var none = &proto.None{}
+
+func characterStateView(s uint) proto.CharacterState {
+	switch s {
+	case hegemonie_auth_backend.CharacterStateUnknown:
+		return proto.CharacterState_CharacterUnknown
+	case hegemonie_auth_backend.CharacterStateActive:
+		return proto.CharacterState_CharacterActive
+	case hegemonie_auth_backend.CharacterStateSuper:
+		return proto.CharacterState_CharacterSuper
+	case hegemonie_auth_backend.CharacterStateSuspended:
+		return proto.CharacterState_CharacterSuspended
+	default:
+		// FIXME(jfs): log something, there is a corruption
+		return proto.CharacterState_CharacterUnknown
+	}
+}
+
+func userStateView(s uint) proto.UserState {
+	switch s {
+	case hegemonie_auth_backend.UserStateUnknown:
+		return proto.UserState_UserUnknown
+	case hegemonie_auth_backend.UserStateInvited:
+		return proto.UserState_UserInvited
+	case hegemonie_auth_backend.UserStateActive:
+		return proto.UserState_UserActive
+	case hegemonie_auth_backend.UserStateAdmin:
+		return proto.UserState_UserActive
+	case hegemonie_auth_backend.UserStateSuspended:
+		return proto.UserState_UserSuspended
+	default:
+		// FIXME(jfs): log something, there is a corruption
+		return proto.UserState_UserUnknown
+	}
+}
+
+func userView(u hegemonie_auth_backend.User) *proto.UserView {
 	return &proto.UserView{
-		Id: u.ID, Name: u.Name, Mail: u.Email,
-		Admin: u.Admin, Inactive: u.Inactive, Suspended: u.Suspended,
+		UserId: u.ID,
+		Name:   u.Name,
+		Mail:   u.Email,
+		State:  userStateView(u.State),
 	}
 }
 
-func userViewFull(u *auth.User) *proto.UserView {
-	rep := userView(u)
-	for _, c := range u.Characters {
-		if c.Off || c.Deleted {
-			continue
-		}
-		rep.Characters = append(rep.Characters,
-			&proto.CharacterView{Id: c.ID, Name: c.Name, Region: c.Region})
+func characterView(u hegemonie_auth_backend.Character) *proto.CharacterView {
+	return &proto.CharacterView{
+		UserId: "NOT-SET",
+		CharId: u.ID,
+		Name:   u.Name,
+		Region: u.Region,
+		State:  characterStateView(u.State),
 	}
-	return rep
 }
 
-func (srv *authService) UserShow(ctx context.Context, req *proto.UserShowReq) (*proto.UserView, error) {
-	var u *auth.User
-	if req.Id > 0 {
-		u = srv.db.UserGet(req.Id)
-	} else if len(req.Mail) > 0 {
-		u = srv.db.UserLookup(req.Mail)
-	} else {
-		return nil, status.Error(codes.InvalidArgument, "Missing ID and Name")
-	}
-
-	if u == nil || u.Deleted {
-		return nil, status.Error(codes.NotFound, "No such User")
-	}
-	return userViewFull(u), nil
-}
-
-func (srv *authService) UserList(ctx context.Context, req *proto.UserListReq) (*proto.UserListRep, error) {
+func (srv *authService) UserList(req proto.UserListReq, stream proto.Auth_UserListServer) error {
 	if req.Limit <= 0 {
 		req.Limit = 1024
 	}
 
-	rep := proto.UserListRep{}
-	for _, u := range srv.db.UsersByID {
-		if uint64(len(rep.Items)) >= req.Limit {
-			break
-		}
-		if u.Deleted || u.ID <= req.Marker {
-			continue
-		}
-
-		rep.Items = append(rep.Items, userView(u))
+	tab, err := srv.db.UsersList(req.Marker, req.Limit)
+	if err != nil {
+		return err
 	}
-	return &rep, nil
+
+	for _, u := range tab {
+		err = stream.Send(userView(u))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (srv *authService) UserCreate(ctx context.Context, req *proto.UserCreateReq) (*proto.UserView, error) {
 	var err error
-	u := srv.db.UserLookup(req.Mail)
-	if u != nil {
-		return nil, status.Error(codes.AlreadyExists, "User already registered")
-	}
-	u, err = srv.db.CreateUser(req.Mail)
-	return userViewFull(u), err
-}
-
-func (srv *authService) UserUpdate(ctx context.Context, req *proto.UserUpdateReq) (*proto.None, error) {
-	u := srv.db.UserGet(req.Id)
-	if u != nil || u.Deleted {
-		return nil, status.Error(codes.NotFound, "User not found")
-	}
-	if req.Pass != "" {
-		srv.db.SetPassword(u, req.Pass)
-		u.Name = req.Name
-	}
-	return &proto.None{}, nil
-}
-
-func (srv *authService) UserSuspend(ctx context.Context, req *proto.UserSuspendReq) (*proto.None, error) {
-	u := srv.db.UserGet(req.Id)
-	if u != nil || u.Deleted {
-		return nil, status.Error(codes.NotFound, "User not found")
-	}
-	u.Suspended = true
-	return &proto.None{}, nil
-}
-
-func (srv *authService) UserAuth(ctx context.Context, req *proto.UserAuthReq) (*proto.UserView, error) {
-	u := srv.db.UserLookup(req.Mail)
-	if u == nil {
-		return nil, status.Error(codes.NotFound, "No such User")
-	}
-	err := srv.db.AuthBasic(u, req.Pass)
+	u, err := srv.db.UserCreate(req.Mail, req.Pass)
 	if err != nil {
-		return nil, status.Error(codes.PermissionDenied, "User suspended")
+		return nil, err
+	}
+	return userView(u), err
+}
+
+func (srv *authService) UserShow(ctx context.Context, req *proto.UserId) (*proto.UserView, error) {
+	u, err := srv.db.UserShow(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
 	}
 	return userView(u), nil
 }
 
-func (srv *authService) CharacterShow(ctx context.Context, req *proto.CharacterShowReq) (*proto.UserView, error) {
+func (srv *authService) UserPromote(ctx context.Context, req *proto.UserId) (*proto.None, error) {
+	err := srv.db.UserPromote(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
+	}
+	return none, nil
+}
+
+func (srv *authService) UserDemote(ctx context.Context, req *proto.UserId) (*proto.None, error) {
+	err := srv.db.UserDemote(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
+	}
+	return none, nil
+}
+
+func (srv *authService) UserSuspend(ctx context.Context, req *proto.UserId) (*proto.None, error) {
+	err := srv.db.UserSuspend(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
+	}
+	return none, nil
+}
+
+func (srv *authService) UserResume(ctx context.Context, req *proto.UserId) (*proto.None, error) {
+	err := srv.db.UserResume(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
+	}
+	return none, nil
+}
+
+func (srv *authService) UserAuth(ctx context.Context, req *proto.UserAuthReq) (*proto.UserView, error) {
+	u, err := srv.db.UserAuthenticate(req.Mail, req.Pass)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
+	}
+	return userView(u), nil
+}
+
+func (srv *authService) CharacterList(ctx context.Context, req *proto.CharacterListReq) (*proto.UserView, error) {
 	if req.User <= 0 || req.Character <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "Invalid user/role ID")
 	}
@@ -134,7 +168,7 @@ func (srv *authService) CharacterShow(ctx context.Context, req *proto.CharacterS
 	}
 }
 
-func (srv *authService) CharacterUpdate(ctx context.Context, req *proto.CharacterUpdateReq) (*proto.None, error) {
+func (srv *authService) CharacterCreate(ctx context.Context, req *proto.CharacterCreateReq) (*proto.None, error) {
 	if req.User <= 0 || req.Character <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "Invalid user ID")
 	}
@@ -155,7 +189,107 @@ func (srv *authService) CharacterUpdate(ctx context.Context, req *proto.Characte
 	return &proto.None{}, nil
 }
 
-func (srv *authService) CharacterMigrate(ctx context.Context, req *proto.CharacterMigrationReq) (*proto.None, error) {
+func (srv *authService) CharacterDelete(ctx context.Context, req *proto.CharacterId) (*proto.None, error) {
+	if req.User <= 0 || req.Character <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "Invalid user ID")
+	}
+
+	u := srv.db.UserGet(req.User)
+	if u == nil {
+		return nil, status.Error(codes.NotFound, "Not such User")
+	}
+
+	c := u.GetCharacter(req.Character)
+	if c == nil {
+		return nil, status.Error(codes.NotFound, "No such Role")
+	}
+	c.Region = req.Region
+
+	return &proto.None{}, nil
+}
+
+func (srv *authService) CharacterShow(ctx context.Context, req *proto.CharacterId) (*proto.UserView, error) {
+	if req.User <= 0 || req.Character <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "Invalid user/role ID")
+	}
+
+	if u := srv.db.UserGet(req.User); u == nil {
+		return nil, status.Error(codes.NotFound, "Not such User")
+	} else {
+		if u.Suspended || u.Deleted {
+			return nil, status.Error(codes.PermissionDenied, "User suspended")
+		}
+		for _, c := range u.Characters {
+			if c.ID == req.Character {
+				uView := userView(u)
+				uView.Characters = append(uView.Characters, &proto.CharacterView{
+					Id: c.ID, Region: c.Region, Name: c.Name, Off: c.Off,
+				})
+				return uView, nil
+			}
+		}
+		return nil, status.Error(codes.PermissionDenied, "Character mismatch")
+	}
+}
+
+func (srv *authService) CharacterSuper(ctx context.Context, req *proto.CharacterId) (*proto.None, error) {
+	if req.User <= 0 || req.Character <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "Invalid user ID")
+	}
+
+	u := srv.db.UserGet(req.User)
+	if u == nil {
+		return nil, status.Error(codes.NotFound, "Not such User")
+	}
+
+	c := u.GetCharacter(req.Character)
+	if c == nil {
+		return nil, status.Error(codes.NotFound, "No such Role")
+	}
+	c.Region = req.Region
+
+	return &proto.None{}, nil
+}
+
+func (srv *authService) CharacterNormal(ctx context.Context, req *proto.CharacterId) (*proto.None, error) {
+	if req.User <= 0 || req.Character <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "Invalid user ID")
+	}
+
+	u := srv.db.UserGet(req.User)
+	if u == nil {
+		return nil, status.Error(codes.NotFound, "Not such User")
+	}
+
+	c := u.GetCharacter(req.Character)
+	if c == nil {
+		return nil, status.Error(codes.NotFound, "No such Role")
+	}
+	c.Region = req.Region
+
+	return &proto.None{}, nil
+}
+
+func (srv *authService) CharacterSuspend(ctx context.Context, req *proto.CharacterId) (*proto.None, error) {
+	if req.User <= 0 || req.Character <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "Invalid user ID")
+	}
+
+	u := srv.db.UserGet(req.User)
+	if u == nil {
+		return nil, status.Error(codes.NotFound, "Not such User")
+	}
+
+	c := u.GetCharacter(req.Character)
+	if c == nil {
+		return nil, status.Error(codes.NotFound, "No such Role")
+	}
+	c.Region = req.Region
+
+	return &proto.None{}, nil
+}
+
+func (srv *authService) CharacterResume(ctx context.Context, req *proto.CharacterId) (*proto.None, error) {
 	if req.User <= 0 || req.Character <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "Invalid user ID")
 	}

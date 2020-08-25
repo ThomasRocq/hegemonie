@@ -44,9 +44,14 @@ const (
 )
 
 type World struct {
-	Config      Configuration
+	// Core configuration common to all the Regions of the current World.
+	Config Configuration
+
+	// Data that define the current World, shared among all the Regions.
 	Definitions DefinitionsBase
-	Live        LiveBase
+
+	// All the regions that have been instantiated into the current World.
+	Regions SetOfRegions
 
 	// Interface to the notification system
 	notifier Notifier
@@ -54,9 +59,7 @@ type World struct {
 	// Interface to the map
 	mapView MapView
 
-	nextID uint64
-	Salt   string
-	rw     sync.RWMutex
+	rw sync.RWMutex
 }
 
 type Configuration struct {
@@ -89,18 +92,40 @@ type Configuration struct {
 }
 
 type DefinitionsBase struct {
-	Units      SetOfUnitTypes
-	Buildings  SetOfBuildingTypes
+	// All the possible Units that can be trained or hired in a World
+	// IMMUTABLE: Only read accesses allowed.
+	Units SetOfUnitTypes
+	// All the possible Buildings that can be spanwed in Cities of the current World
+	// IMMUTABLE: Only read accesses allowed.
+	Buildings SetOfBuildingTypes
+	// All the possible Knowledge that can be learned in Cities of the current World
+	// IMMUTABLE: Only read accesses allowed.
 	Knowledges SetOfKnowledgeTypes
 }
 
-type LiveBase struct {
+type Region struct {
+	// Unique name of the region
+	Name string
+
+	// Identifier of the map in use for the current Region
+	MapName string
+
 	// All the cities present on the Region
 	Cities SetOfCities
 
 	// Fights currently happening. The armies involved in the Fight are owned
 	// By the Fight and do not appear in the "Armies" field.
 	Fights SetOfFights
+
+	// Back-pointer to the World the current Region belongs to.
+	world *World
+
+	nextID uint64
+}
+
+// Map actions that are exposed to a World
+type MapView interface {
+	Step(src, dst uint64) (uint64, error)
 }
 
 type Resources [ResourceMax]uint64
@@ -503,13 +528,14 @@ type Fight struct {
 
 type SetOfFights []*Fight
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Artifact      SetOfArtifacts
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Army          SetOfArmies
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Building      SetOfBuildings
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *BuildingType  SetOfBuildingTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *City          SetOfCities
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set          region ./world_auto.go uint64         SetOfId
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Knowledge     SetOfKnowledges
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *KnowledgeType SetOfKnowledgeTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *Unit          SetOfUnits
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID region ./world_auto.go *UnitType      SetOfUnitTypes
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Artifact      SetOfArtifacts
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Army          SetOfArmies
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Building      SetOfBuildings
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *BuildingType  SetOfBuildingTypes
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *City          SetOfCities
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key          region ./world_auto.go uint64         SetOfId
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Knowledge     SetOfKnowledges
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *KnowledgeType SetOfKnowledgeTypes
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Unit          SetOfUnits
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *UnitType      SetOfUnitTypes
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .Name --acctype string region ./world_auto.go *Region SetOfRegions

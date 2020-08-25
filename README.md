@@ -14,9 +14,9 @@ for larger RPG games. The description of the game will sound familiar to RPG
 players:
  * Each **user** manages characters, each **character** manages cities
  * Each **city** produces **resources**, grows a **knowledge** tree, evolves
-   with **building** and trains **troops**.
- * **Armies** can be setup to gather some troops and execute orders across
-   the map.
+   with **building** and trains **troops**. It might also hold **Artifacts**.
+ * **Armies** can be setup to gather some troops, resources and artifacts,
+   and then execute orders across the map.
 
 ## Getting Started
 

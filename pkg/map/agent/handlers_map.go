@@ -71,3 +71,36 @@ func (s *srvMap) GetPath(ctx context.Context, req *proto.PathRequest) (*proto.Pa
 	}
 	return rep, nil
 }
+
+func (s *srvMap) Cities(ctx context.Context, req *proto.ListCitiesReq) (*proto.ListOfCities, error) {
+	s.repo.RLock()
+	defer s.repo.RUnlock()
+
+	m, err := s.repo.GetMap(req.MapName)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Marker <= 0 || req.Marker > 1024 {
+		req.Marker = 1024
+	}
+
+	rep := &proto.ListOfCities{}
+	next := req.Marker
+	oneMore := func() bool { return uint64(len(rep.Items)) < req.Marker }
+
+	for oneMore() {
+		for _, v := range m.Cells.Slice(next, req.Max) {
+			if v.CityHere {
+				rep.Items = append(rep.Items, &proto.CityLocation{
+					Id: v.ID, Name: v.City,
+				})
+				if !oneMore() {
+					return rep, nil
+				}
+			}
+			next = v.ID
+		}
+	}
+	return rep, nil
+}

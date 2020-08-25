@@ -145,8 +145,8 @@ func main() {
 		"acctype", "uint64", "Golang type of the Accessor")
 	flag.Parse()
 
-	instance.Package = flag.Arg(0)
 	instance.Path = flag.Arg(1)
+	instance.Package = flag.Arg(0)
 	instance.TypeName = flag.Arg(2)
 	instance.SetName = flag.Arg(3)
 	instance.Date = time.Now().String()

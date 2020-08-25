@@ -25,6 +25,11 @@ type Vertex struct {
 	// Location of the Cell on the map. Used for rendering
 	X uint64 `json:"x"`
 	Y uint64 `json:"y"`
+
+	// Should the current location carry a city when the region starts,
+	// and if yes, what should be the name of that city.
+	CityHere bool   `json:"city,omitempty"`
+	City     string `json:"cityName,omitempty"`
 }
 
 // A Map is a directed graph destined to be used as a transport network,
@@ -55,4 +60,4 @@ type Repository interface {
 	Register(m *Map)
 }
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set -acc .ID mapgraph ./map_auto.go *Vertex SetOfVertices
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID mapgraph ./map_auto.go *Vertex SetOfVertices
