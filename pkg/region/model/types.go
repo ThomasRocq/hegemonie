@@ -528,14 +528,14 @@ type Fight struct {
 
 type SetOfFights []*Fight
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Artifact      SetOfArtifacts
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Army          SetOfArmies
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Building      SetOfBuildings
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *BuildingType  SetOfBuildingTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *City          SetOfCities
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key          region ./world_auto.go uint64         SetOfId
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Knowledge     SetOfKnowledges
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *KnowledgeType SetOfKnowledgeTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *Unit          SetOfUnits
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID region ./world_auto.go *UnitType      SetOfUnitTypes
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .Name --acctype string region ./world_auto.go *Region SetOfRegions
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfArtifacts:*Artifact
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfArmies:*Army
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfBuildings:*Building
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfBuildingTypes:*BuildingType
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfCities:*City
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfId:uint64 :uint64
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfKnowledges:*Knowledge
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfKnowledgeTypes:*KnowledgeType
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfUnits:*Unit
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfUnitTypes:*UnitType
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./world_auto.go region:SetOfRegions:*Region Name:string

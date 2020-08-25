@@ -46,8 +46,6 @@ type Map struct {
 	steps  map[vector]uint64
 }
 
-type SetOfEdges []*Edge
-
 type Repository interface {
 	RLock()
 	RUnlock()
@@ -60,4 +58,5 @@ type Repository interface {
 	Register(m *Map)
 }
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID mapgraph ./map_auto.go *Vertex SetOfVertices
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./map_auto.go mapgraph:SetOfVertices:*Vertex ID:uint64
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./map_auto.go mapgraph:SetOfEdges:*Edge S:uint64 D:uint64

@@ -18,26 +18,24 @@ AUTO+= pkg/region/model/world_auto.go
 AUTO+= pkg/region/proto/region.pb.go
 AUTO+= pkg/healthcheck/healthcheck.pb.go
 
-all: prepare gen-set
+all: prepare
+	$(GO) install $(BASE)/cmd/gen-set
 	#$(GO) install $(BASE)/cmd/hege-init
 	$(GO) install $(BASE)/cmd/hege-mapper
 	$(GO) install $(BASE)/cmd/heged
 	$(GO) install $(BASE)/cmd/hege
 
-gen-set:
-	$(GO) install $(BASE)/cmd/gen-set-1key
-
 prepare: $(AUTO)
 
-pkg/auth/backend/mem_auto.go: pkg/auth/backend/mem.go gen-set
+pkg/auth/backend/mem_auto.go: pkg/auth/backend/mem.go cmd/gen-set/main.go
 	-rm $@
 	$(GO) generate github.com/jfsmig/hegemonie/pkg/auth/backend
 
-pkg/map/graph/map_auto.go: pkg/map/graph/types.go gen-set
+pkg/map/graph/map_auto.go: pkg/map/graph/types.go cmd/gen-set/main.go
 	-rm $@
 	$(GO) generate github.com/jfsmig/hegemonie/pkg/map/graph
 
-pkg/region/model/world_auto.go: pkg/region/model/types.go gen-set
+pkg/region/model/world_auto.go: pkg/region/model/types.go cmd/gen-set/main.go
 	-rm $@
 	$(GO) generate github.com/jfsmig/hegemonie/pkg/region/model
 

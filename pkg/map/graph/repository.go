@@ -123,4 +123,4 @@ func (r *memRepository) RUnlock() { r.rw.RUnlock() }
 func (r *memRepository) WLock()   { r.rw.Lock() }
 func (r *memRepository) WUnlock() { r.rw.Unlock() }
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID --acctype string mapgraph ./map_auto.go *Map setOfMaps
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./map_auto.go mapgraph:setOfMaps:*Map ID:string

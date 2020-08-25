@@ -123,7 +123,7 @@ func (db *dbCharactersMem) Create(userID, region, name string) (Character, error
 	if !usersByID.Has(userID) {
 		return Character{}, ErrNotFound
 	}
-	if charsByName.Has(name) {
+	if charsByName.Has(region, name) {
 		return Character{}, ErrExists
 	}
 	c := &Character{
@@ -159,5 +159,5 @@ func (db *dbCharactersMem) Delete(region, name string) error {
 	return errNYI
 }
 
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .ID --acctype string hegemonie_auth_backend ./mem_auto.go *User SetOfUsers
-//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set-1key -acc .Name --acctype string hegemonie_auth_backend ./mem_auto.go *Character SetOfCharacters
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./mem_auto.go hegemonie_auth_backend:SetOfUsers:*User           ID:string
+//go:generate go run github.com/jfsmig/hegemonie/cmd/gen-set ./mem_auto.go hegemonie_auth_backend:SetOfCharacters:*Character Region:string Name:string
