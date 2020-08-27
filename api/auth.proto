@@ -49,17 +49,17 @@ service Character {
   // Check the given Character can be managed by the given User and return
   // an abstract of the Character information. The user information is also
   // returned to save calls from the main service.
-  rpc Show (CharacterId) returns (UserView) {}
+  rpc Show (CharacterId) returns (CharacterView) {}
 
-  rpc Delete (CharacterId) returns (UserView) {}
+  rpc Delete (CharacterId) returns (None) {}
 
-  rpc Promote (CharacterId) returns (UserView) {}
+  rpc Promote (CharacterId) returns (None) {}
 
-  rpc Demote (CharacterId) returns (UserView) {}
+  rpc Demote (CharacterId) returns (None) {}
 
-  rpc Suspend (CharacterId) returns (UserView) {}
+  rpc Suspend (CharacterId) returns (None) {}
 
-  rpc Resume (CharacterId) returns (UserView) {}
+  rpc Resume (CharacterId) returns (None) {}
 }
 
 message None {}
