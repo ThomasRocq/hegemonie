@@ -29,8 +29,9 @@ const (
 )
 
 type Character struct {
-	Name   string `json:"name"`
 	Region string `json:"region"`
+	Name   string `json:"name"`
+	User   string `json:"user"`
 	State  uint   `json:"state"`
 }
 
@@ -56,6 +57,8 @@ type UserBackend interface {
 	// Present the details of the User.
 	Show(ID string) (User, error)
 
+	GetByMail(email string) (User, error)
+
 	// Make the give User an administrator. An administrator has extended privileges on
 	// all the regions.
 	Promote(ID string) error
@@ -75,7 +78,7 @@ type UserBackend interface {
 	Delete(ID string) error
 
 	// List all the characters owned by the given user.
-	Characters(ID, marker string, max uint32) ([]Character, error)
+	Characters(ID string) ([]Character, error)
 }
 
 type CharacterBackend interface {
@@ -167,5 +170,4 @@ func (u User) Authenticate(pass []byte) bool {
 
 func init() {
 	registerMem()
-	registerNYI()
 }

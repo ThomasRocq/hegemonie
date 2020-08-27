@@ -25,7 +25,6 @@ var headerTemplate string = `// Code generated : DO NOT EDIT.
 package {{.Package}}
 
 import (
-	"errors"
 	"sort"
 )
 `
@@ -46,18 +45,17 @@ func (s {{.SetName}}) Less(i, j int) bool {
 	return s[i]{{.F0}} < s[j]{{.F0}}
 }
 
-func (s {{.SetName}}) Check() error {
-	if !sort.IsSorted(s) {
-		return errors.New("Unsorted")
+func (s {{.SetName}}) Check() {
+	if !sort.IsSorted(s) {	
+		panic("Unsorted")
 	}
 	var lastId {{.T0}}
 	for _, a := range s {
 		if lastId == a{{.F0}} {
-			return errors.New("Duplicate ID")
+			panic("Duplicate ID")
 		}
 		lastId = a{{.F0}}
 	}
-	return nil
 }
 
 func (s {{.SetName}}) Slice(marker {{.T0}}, max uint32) []{{.ItemType}} {
@@ -145,19 +143,18 @@ func (s {{.SetName}}) First(at {{.T0}}) int {
 	return sort.Search(len(s), func(i int) bool { return s[i]{{.F0}} >= at })
 }
 
-func (s {{.SetName}}) Check() error {
+func (s {{.SetName}}) Check() {
 	if !sort.IsSorted(s) {
-		return errors.New("Unsorted")
+		panic("Unsorted")
 	}
 	var l0 {{.T0}}
 	var l1 {{.T1}}
 	for _, a := range s {
 		if l0 == a{{.F0}} && l1 == a{{.F1}} {
-			return errors.New("Duplicate ID")
+			panic("Duplicate ID")
 		}
 		l0 = a{{.F0}}
 	}
-	return nil
 }
 
 func (s {{.SetName}}) Slice(m0 {{.T0}}, m1 {{.T1}}, max uint32) []{{.ItemType}} {
@@ -226,11 +223,11 @@ func (s *{{.SetName}}) Remove(a {{.ItemType}}) {
 `
 
 type ArrayInstance struct {
-	Path     string
-	Date     string
+	Path string
+	Date string
 
-	Package  string
-	SetName  string
+	Package string
+	SetName string
 
 	ItemType string
 
