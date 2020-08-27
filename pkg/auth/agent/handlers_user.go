@@ -87,6 +87,14 @@ func (srv *userService) Show(ctx context.Context, req *proto.UserId) (*proto.Use
 	return userView(u), nil
 }
 
+func (srv *userService) GetByMail(ctx context.Context, req *proto.UserMail) (*proto.UserView, error) {
+	u, err := srv.users.GetByMail(req.Mail)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "No such User")
+	}
+	return userView(u), nil
+}
+
 func (srv *userService) Promote(ctx context.Context, req *proto.UserId) (*proto.None, error) {
 	err := srv.users.Promote(req.Id)
 	if err != nil {

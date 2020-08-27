@@ -11,7 +11,7 @@ import (
 	"gopkg.in/macaron.v1"
 )
 
-func doMove(f *frontService, m *macaron.Macaron) macaron.Handler {
+func doMove(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, sess session.Store, flash *session.Flash) {
 		_, err := f.authenticateAdminFromSession(ctx, sess)
 		if err != nil {
@@ -20,8 +20,11 @@ func doMove(f *frontService, m *macaron.Macaron) macaron.Handler {
 			return
 		}
 
+		// FIXME(jfs): get the region from some form data
+		regID := region.RegionId{plop}
+
 		cliReg := region.NewAdminClient(f.cnxRegion)
-		_, err = cliReg.Move(contextMacaronToGrpc(ctx, sess), &region.None{})
+		_, err = cliReg.Move(contextMacaronToGrpc(ctx, sess), &regID)
 		if err != nil {
 			flash.Warning(err.Error())
 		}
@@ -29,7 +32,7 @@ func doMove(f *frontService, m *macaron.Macaron) macaron.Handler {
 	}
 }
 
-func doProduce(f *frontService, m *macaron.Macaron) macaron.Handler {
+func doProduce(f *frontService) macaron.Handler {
 	return func(ctx *macaron.Context, sess session.Store, flash *session.Flash) {
 		_, err := f.authenticateAdminFromSession(ctx, sess)
 		if err != nil {
@@ -38,8 +41,11 @@ func doProduce(f *frontService, m *macaron.Macaron) macaron.Handler {
 			return
 		}
 
+		// FIXME(jfs): get the region from some form data
+		regID := region.RegionId{plop}
+
 		cliReg := region.NewAdminClient(f.cnxRegion)
-		_, err = cliReg.Produce(contextMacaronToGrpc(ctx, sess), &region.None{})
+		_, err = cliReg.Produce(contextMacaronToGrpc(ctx, sess), &regID)
 		if err != nil {
 			flash.Warning(err.Error())
 		}

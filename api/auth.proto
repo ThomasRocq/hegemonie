@@ -24,6 +24,8 @@ service User {
   // Return a view of the User
   rpc Show (UserId) returns (UserView) {}
 
+  rpc GetByMail (UserMail) returns (UserView) {}
+
   // Make the User an admin.
   rpc Promote (UserId) returns (None) {}
 
@@ -66,6 +68,10 @@ message None {}
 
 message UserId {
   string id = 1;
+}
+
+message UserMail {
+  string mail = 1;
 }
 
 message CharacterId {
