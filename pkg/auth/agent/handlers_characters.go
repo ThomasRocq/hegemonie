@@ -26,6 +26,8 @@ func characterStateView(s uint) proto.CharacterState {
 		return proto.CharacterState_CharacterSuper
 	case hegemonie_auth_backend.CharacterStateSuspended:
 		return proto.CharacterState_CharacterSuspended
+	case hegemonie_auth_backend.CharacterStateDeleted:
+		return proto.CharacterState_CharacterDeleted
 	default:
 		// FIXME(jfs): log something, there is a corruption
 		return proto.CharacterState_CharacterUnknown

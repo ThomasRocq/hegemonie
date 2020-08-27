@@ -26,6 +26,8 @@ func userStateView(s uint) proto.UserState {
 		return proto.UserState_UserActive
 	case hegemonie_auth_backend.UserStateSuspended:
 		return proto.UserState_UserSuspended
+	case hegemonie_auth_backend.UserStateDeleted:
+		return proto.UserState_UserDeleted
 	default:
 		// FIXME(jfs): log something, there is a corruption
 		return proto.UserState_UserUnknown
