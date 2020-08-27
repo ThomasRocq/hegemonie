@@ -127,9 +127,10 @@ message NamedItem {
 
 // Identifies an army managed by the city
 message ArmyId {
-  uint64 character = 1;
-  uint64 city = 2;
-  uint64 army = 3;
+  string region = 1;
+  uint64 character = 2;
+  uint64 city = 3;
+  uint64 army = 4;
 }
 
 message ArmyView {
