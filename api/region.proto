@@ -18,18 +18,17 @@ service Admin {
   rpc Move(RegionId) returns (None) {}
 
   // Compute the scoreboard of the region.
-  // FIXME(jfs): the request is not paginated.
-  rpc GetScores(RegionId) returns (ListOfCities) {}
+  rpc GetScores(RegionId) returns (stream PublicCity) {}
 }
 
 service City {
   // Paginated query of the cities owned by the given character.
   // Only a summary of the cities are returned.
-  rpc List (CitiesByCharReq) returns (ListOfCities) {}
+  rpc List (CitiesByCharReq) returns (stream PublicCity) {}
 
   // Paginated query of all the cities of the region.
   // Only a summary of the cities are returned.
-  rpc AllCities (PaginatedQuery) returns (ListOfCities) {}
+  rpc AllCities (PaginatedQuery) returns (stream PublicCity) {}
 
   // Returns a complete view of the City
   // TODO(jfs): the request might fail because of a too large object
@@ -66,18 +65,18 @@ service City {
   rpc TransferResources (TransferResourcesReq) returns (None) {}
 
   // Return the list of armies that can be controlled by the given City
-  rpc ListArmies (CityId) returns (ListOfNamedItems) {}
+  rpc ListArmies (CityId) returns (stream NamedItem) {}
 }
 
 service Definitions {
   // Return (a page of) a list of all the Units that are possible in the world
-  rpc ListUnits (PaginatedQuery) returns (ListOfUnitTypes) {}
+  rpc ListUnits (PaginatedQuery) returns (stream UnitTypeView) {}
 
   // Return (a page of) a list of all the Buildings that are possible in the world
-  rpc ListBuildings (PaginatedQuery) returns (ListOfBuildingTypes) {}
+  rpc ListBuildings (PaginatedQuery) returns (stream BuildingTypeView) {}
 
   // Return (a page of) a list of all the Knowledge that are possible in the world
-  rpc ListKnowledges (PaginatedQuery) returns (ListOfKnowledgeTypes) {}
+  rpc ListKnowledges (PaginatedQuery) returns (stream KnowledgeTypeView) {}
 }
 
 service Army {
@@ -124,10 +123,6 @@ message RegionCreateReq {
 message NamedItem {
   uint64 id = 1;
   string name = 2;
-}
-
-message ListOfNamedItems {
-  repeated NamedItem items = 1;
 }
 
 // Identifies an army managed by the city
@@ -416,25 +411,11 @@ message CitiesByCharReq {
   string region = 1;
   uint64 character = 2;
   uint64 marker = 3;
-  uint32 max = 4;
 }
 
 message PaginatedQuery {
   string region = 1;
   uint64 marker = 2;
-  uint32 max = 3;
-}
-
-message ListOfUnitTypes {
-  repeated UnitTypeView items = 1;
-}
-
-message ListOfBuildingTypes {
-  repeated BuildingTypeView items = 1;
-}
-
-message ListOfKnowledgeTypes {
-  repeated KnowledgeTypeView items = 1;
 }
 
 message Artifact {
@@ -442,8 +423,3 @@ message Artifact {
   uint64 idType = 2;
   string name = 3;
 }
-
-message ListOfCities {
-  repeated PublicCity items = 1;
-}
-

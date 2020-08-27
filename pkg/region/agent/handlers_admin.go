@@ -9,12 +9,17 @@ import (
 	"context"
 	"github.com/jfsmig/hegemonie/pkg/region/model"
 	proto "github.com/jfsmig/hegemonie/pkg/region/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"io"
 )
 
 type srvAdmin struct {
 	cfg *regionConfig
 	w   *region.World
 }
+
+var none = &proto.None{}
 
 func (srv *srvAdmin) rlockDo(action func() error) error {
 	srv.w.RLock()
@@ -28,29 +33,50 @@ func (srv *srvAdmin) wlockDo(action func() error) error {
 	return action()
 }
 
-func (s *srvAdmin) Produce(ctx context.Context, req *proto.None) (*proto.None, error) {
-	return &proto.None{}, s.wlockDo(func() error { s.w.Produce(); return nil })
+func (s *srvAdmin) Produce(ctx context.Context, req *proto.RegionId) (*proto.None, error) {
+	return none, s.rlockDo(func() error {
+		r := s.w.Regions.Get(req.Region)
+		if r == nil {
+			return status.Error(codes.NotFound, "No such region")
+		}
+		r.Produce()
+		return nil
+	})
 }
 
-func (s *srvAdmin) Move(ctx context.Context, req *proto.None) (*proto.None, error) {
-	return &proto.None{}, s.wlockDo(func() error { s.w.Move(); return nil })
-}
-
-func (s *srvAdmin) Save(ctx context.Context, req *proto.None) (*proto.None, error) {
-	return &proto.None{}, s.wlockDo(func() error { return s.w.SaveLiveToFiles(s.cfg.pathSave) })
+func (s *srvAdmin) Move(ctx context.Context, req *proto.RegionId) (*proto.None, error) {
+	return none, s.rlockDo(func() error {
+		r := s.w.Regions.Get(req.Region)
+		if r == nil {
+			return status.Error(codes.NotFound, "No such region")
+		}
+		r.Move()
+		return nil
+	})
 }
 
 func (s *srvAdmin) CreateRegion(ctx context.Context, req *proto.RegionCreateReq) (*proto.None, error) {
-	return &proto.None{}, s.wlockDo(func() error { return s.w.CreateRegion(req.Name, req.MapName) })
+	return none, s.wlockDo(func() error {
+		_, err := s.w.CreateRegion(req.Name, req.MapName)
+		return err
+	})
 }
 
-func (s *srvAdmin) GetScores(ctx context.Context, req *proto.None) (*proto.ListOfCities, error) {
-	sb := &proto.ListOfCities{}
-	err := s.rlockDo(func() error {
-		for _, c := range s.w.Regions.Cities {
-			sb.Items = append(sb.Items, ShowCityPublic(s.w, c, true))
+func (s *srvAdmin) GetScores(req *proto.RegionId, stream proto.Admin_GetScoresServer) error {
+	return s.rlockDo(func() error {
+		r := s.w.Regions.Get(req.Region)
+		if r == nil {
+			return status.Error(codes.NotFound, "No such region")
+		}
+		for _, c := range r.Cities {
+			err := stream.Send(ShowCityPublic(s.w, c, true))
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
-	return sb, err
 }
