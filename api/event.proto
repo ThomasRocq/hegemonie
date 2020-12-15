@@ -5,7 +5,9 @@
 
 syntax = "proto3";
 
-package hegemonie.rpevent.proto;
+option go_package = "proto";
+
+package hege.evt;
 
 service Consumer {
   // Acknowledge one message given its ID and the in-game Character

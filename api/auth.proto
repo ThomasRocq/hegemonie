@@ -5,7 +5,9 @@
 
 syntax = "proto3";
 
-package hegemonie.auth.proto;
+option go_package = "proto";
+
+package hege.aaa;
 
 service Auth {
   // Performs a simple authentication for the User

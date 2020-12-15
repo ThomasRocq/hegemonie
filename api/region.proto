@@ -5,7 +5,9 @@
 
 syntax = "proto3";
 
-package hegemonie.region.proto;
+option go_package = "proto";
+
+package hege.reg;
 
 service Admin {
   //

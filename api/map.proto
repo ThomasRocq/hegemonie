@@ -5,7 +5,9 @@
 
 syntax = "proto3";
 
-package hegemonie.map.proto;
+option go_package = "proto";
+
+package hege.map;
 
 // 
 service Map {
