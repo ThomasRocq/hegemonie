@@ -1,12 +1,21 @@
 #https://dev.to/ivan/go-build-a-minimal-docker-image-in-just-three-steps-514i
 
-FROM golang:1.13.0-stretch AS builder
+FROM golang:1.15-buster AS builder
+
+LABEL maintainers "Jean-Francois SMIGIELSKI <jf.smigielski@gmail.com>"
 
 ENV GO111MODULE=on \
-    CGO_ENABLED=0 \
+    CGO_ENABLED=1 \
     GOPATH=/gopath
 
 WORKDIR /dist
+
+RUN set -x \
+&& apt-get update \
+&& apt-get install -y --no-install-recommends \
+	make \
+	librocksdb-dev \
+	librocksdb5.17
 
 #RUN mkdir -p /gopath/src/github.com/jfsmig/heged
 COPY . /gopath/src/github.com/jfsmig/hegemonie
@@ -14,8 +23,12 @@ COPY . /gopath/src/github.com/jfsmig/hegemonie
 # Build & Install the code
 RUN set -x \
 && cd /gopath/src/github.com/jfsmig/hegemonie \
-&& go mod download \
-&& go build -o /dist/hegemonie
+&& go mod download
+
+RUN set -x \
+&& cd /gopath/src/github.com/jfsmig/hegemonie \
+&& make \
+&& cp -v /gopath/bin/hege /gopath/bin/heged /dist
 
 # Install the dependencies
 RUN set -x \
@@ -31,11 +44,16 @@ RUN set -x \
 && cp -r pkg/web/templates /data/ \
 && cp -r pkg/web/static /data/static
 
+
+
+#------------------------------------------------------------------------------
 # Create the minimal runtime image
-FROM scratch
+
+FROM scratch as runtime
 COPY --chown=0:0 --from=builder /dist /
 COPY --chown=65534:0 --from=builder /data /data
 EXPOSE 8080/tcp
 USER 65534
 WORKDIR /data
-ENTRYPOINT ["/hegemonie"]
+ENTRYPOINT ["/heged"]
+

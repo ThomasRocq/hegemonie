@@ -1,0 +1,70 @@
+version: "3.3"
+
+services:
+
+  hege_maps:
+    build: "."
+    ports:
+      - "8000:8000"
+    volumes:
+      - "./docs/maps:/data"
+    command: heged map /data
+
+  hege_evt:
+    build: "."
+    ports:
+      - "8000:8000"
+    depends_on:
+      - "tikv_evt"
+    command: heged evt http://0.0.0.0:2379
+
+  tikv_evt:
+    image: "pingcap/tikv:v3.0.19"
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    command: >
+      tikv
+      --name="pd1"
+      --data-dir="/data/pd1"
+      --client-urls="http://0.0.0.0:2379"
+      --advertise-client-urls="http://192.168.1.101:2379"
+      --peer-urls="http://0.0.0.0:2380"
+      --advertise-peer-urls="http://192.168.1.101:2380"
+      --initial-cluster="pd1=http://192.168.1.101:2380,pd2=http://192.168.1.102:2380,pd3=http://192.168.1.103:2380"
+
+  keto:
+    image: "oryd/keto"
+    ports:
+      - "4466:4466"
+    environment:
+      DSN: "postgres://keto:secret@127.0.0.1:5432/keto?sslmode=disable"
+    depends_on:
+      - "db_keto"
+
+  db_keto:
+    image: "postgres:12"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_USER: "keto"
+      POSTGRES_DB: "keto"
+
+  kratos:
+    image: "oryd/kratos"
+    ports:
+      - "4467:4467"
+    environment:
+      DSN: "postgres://kratos:secret@127.0.0.1:5433/kratos?sslmode=disable"
+    depends_on:
+      - "db_kratos"
+
+  db_kratos:
+    image: "postgres:12"
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_USER: "kratos"
+      POSTGRES_DB: "kratos"
