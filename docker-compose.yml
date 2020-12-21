@@ -2,69 +2,127 @@ version: "3.3"
 
 services:
 
+#------------------------------------------------------------------------------#
+# Hegemonie: User and Policies management
+# https://www.hegemonie.be/
+# https://github.com/jfsmig/hegemonie
+#------------------------------------------------------------------------------#
+
   hege_maps:
-    image: "jfsmig/hegemonie"
+    image: "jfsmig/hegemonie-runtime"
     ports:
       - "8084:8084"
     volumes:
       - "./docs/maps:/data"
-    command: heged map /data
+    command: map /data
 
-  hege_evt:
-    image: "jfsmig/hegemonie"
-    ports:
-      - "8083:8083"
-    depends_on:
-      - "tikv_evt"
-    command: heged evt /data
+# hege_evt:
+#   image: "jfsmig/hegemonie-runtime"
+#   ports:
+#     - 8083
+#   command: evt /data
 
-  tikv_evt:
-    image: "pingcap/tikv:v3.0.19"
-    ports:
-      - "2379:2379"
-      - "2380:2380"
-    command: >
-      tikv
-      --name="pd1"
-      --data-dir="/data/pd1"
-      --client-urls="http://0.0.0.0:2379"
-      --advertise-client-urls="http://127.0.0.1:2379"
-      --peer-urls="http://0.0.0.0:2380"
-      --advertise-peer-urls="http://127.0.0.1:2380"
-      --initial-cluster="pd1=http://127.0.0.1:2380,pd2=http://127.0.0.1:2380,pd3=http://127.0.0.1:2380"
+#------------------------------------------------------------------------------#
+# ORY KETO: User and Policies management
+# https://www.ory.sh/kratos/
+# https://github.com/ory/kratos
+# > Manages the permissions for users to manages characters
+#------------------------------------------------------------------------------#
 
   keto:
     image: "oryd/keto"
     ports:
       - "4466:4466"
     environment:
-      DSN: "postgres://keto:secret@127.0.0.1:5432/keto?sslmode=disable"
+      DSN: "postgres://keto:secret@keto_db:5432/keto?sslmode=disable"
     depends_on:
-      - "db_keto"
+      - keto_db
+      - keto_migrate
+    restart: on-failure
+ 
+  keto_migrate:
+    image: "oryd/keto"
+    environment:
+      DSN: "postgres://keto:secret@keto_db:5432/keto?sslmode=disable"
+    depends_on:
+      - keto_db
+    command: migrate sql -e
+    restart: on-failure
 
-  db_keto:
+  keto_db:
     image: "postgres:12"
     ports:
-      - "5432:5432"
+      - 5432
     environment:
       POSTGRES_PASSWORD: "secret"
       POSTGRES_USER: "keto"
       POSTGRES_DB: "keto"
 
-  kratos:
-    image: "oryd/kratos"
-    ports:
-      - "4467:4467"
-    environment:
-      DSN: "postgres://kratos:secret@127.0.0.1:5433/kratos?sslmode=disable"
-    depends_on:
-      - "db_kratos"
+#------------------------------------------------------------------------------#
+# ORY KRATOS: Self-login infrastructure
+# https://www.ory.sh/kratos/
+# https://github.com/ory/kratos
+# > Manages the self-registration of users and the 2FA authentication
+#------------------------------------------------------------------------------#
 
-  db_kratos:
+  kratos-selfservice-ui-node:
+    image: oryd/kratos-selfservice-ui-node:v0.5.0-alpha.1
+    ports:
+      - "4455:4455"
+    environment:
+      - PORT=4455
+      - SECURITY_MODE=
+      - KRATOS_BROWSER_URL=http://127.0.0.1:4433/
+      - KRATOS_PUBLIC_URL=http://kratos:4433/
+      - KRATOS_ADMIN_URL=http://kratos:4434/
+    restart: on-failure
+
+  kratos:
+    image: "oryd/kratos:v0.5.5-alpha.1"
+    ports:
+      - "4433:4433"
+      - "4434:4434"
+    environment:
+      DSN: "postgres://kratos:secret@kratos_db:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4"
+    depends_on:
+      - kratos_db
+      - kratos_migrate
+      - mailslurper
+    command: serve -c /etc/config/kratos/kratos.yml --dev
+    restart: on-failure
+    volumes:
+      -
+        type: bind
+        source: ./docs/etc/email-password
+        target: /etc/config/kratos
+
+  kratos_migrate:
+    image: "oryd/kratos:v0.5.5-alpha.1"
+    environment:
+      DSN: "postgres://kratos:secret@kratos_db:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4"
+    depends_on:
+      - kratos_db
+    command: migrate sql -e --yes
+    restart: on-failure
+    volumes:
+      -
+        type: bind
+        source: ./docs/etc/email-password
+        target: /etc/config/kratos
+
+  kratos_db:
     image: "postgres:12"
     ports:
-      - "5433:5432"
+      - 5432
     environment:
       POSTGRES_PASSWORD: "secret"
       POSTGRES_USER: "kratos"
       POSTGRES_DB: "kratos"
+
+  mailslurper:
+    image: oryd/mailslurper:latest-smtps
+    ports:
+      - "4436:4436"
+      - "4437:4437"
+    restart: on-failure
+

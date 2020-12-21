@@ -30,14 +30,15 @@ RUN set -x \
 RUN set -x \
 && cd /gopath/src/github.com/jfsmig/hegemonie \
 && make \
-&& cp -v /gopath/bin/hege /gopath/bin/heged /dist
+&& cp -p -v /gopath/bin/hege /gopath/bin/heged /dist
 
 # Install the dependencies.
 # Inspired by https://dev.to/ivan/go-build-a-minimal-docker-image-in-just-three-steps-514i
 RUN set -x \
 && mkdir -p /dist/lib64 \
-&& ldd ./hegemonie | tr -s '[:blank:]' '\n' | grep '^/' | \
-   xargs -I % sh -c 'mkdir -p $(dirname ./%); cp % ./%;' \
+&& ldd /dist/heged /dist/hege | tr -s '[:blank:]' '\n' \
+ | grep '^/' | grep -v '^/dist' | sort | uniq \
+ | xargs -I % sh -c 'mkdir -p $(dirname ./%); cp % ./%;' \
 && cp /lib64/ld-linux-x86-64.so.2 /dist/lib64/
 
 # Mangle the maps to build ther raw shape based on the seed definitions

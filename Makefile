@@ -67,12 +67,17 @@ test: all
 benchmark: all
 	go list ./... | while read D ; do go test -race -coverprofile=profile.out -covermode=atomic -bench=$$D $$D ; if [ -f profile.out ] ; then cat profile.out >> $(COV_OUT) ; fi ;  done
 
-try: all
-	./ci/local.sh
-
 img_tag:
 	 ( export L='(C) Quentin Minten / CC BY-NC-SA 3.0' ; \
 		for F in website/www/static/img0/quentin-minten*/*.jpg ; do \
 			BN=$(basename $$F) ; \
 			convert img0/$$BN -gravity south -stroke '#000C' -strokewidth 2 -annotate 0 "$L" -stroke  none -fill yellow -annotate 0 "$L" website/www/static/img/$$BN ; \
 		done )
+
+docker: Dockerfile
+	for T in runtime demo ; do sudo docker build --target=$$T --tag=jfsmig/hegemonie-$$T . ; done
+	for T in runtime demo ; do sudo docker push jfsmig/hegemonie-$$T:latest ; done
+
+try: all
+	sudo docker-compose up
+
